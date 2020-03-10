@@ -16,6 +16,7 @@ from scenelist import SceneList
 from sceneview3d import SceneView
 from shots import ShotManager
 from timeslider import Timer, TimeSlider
+from modeler import Modeler
 from util import PROJ_EXT, SCENE_EXT, gSettings, currentProjectFilePath, currentProjectDirectory,setCurrentProjectFilePath, currentScenesDirectory
 import os
 from qtutil import *
@@ -101,6 +102,8 @@ class App(QMainWindowState):
 
         self.__profiler = Profiler()
 
+        self.__modeler = Modeler()
+
         self.timeSlider = TimeSlider(self._timer, self.__shotsManager)
         self.__shotsManager.shotChanged.connect(self.timeSlider.repaint)
 
@@ -108,7 +111,9 @@ class App(QMainWindowState):
         self._addDockWidget(self.__shotsManager, where=Qt.TopDockWidgetArea)
         viewDock = self._addDockWidget(self.__sceneView, '3D View', where=Qt.TopDockWidgetArea)
         logDock = self._addDockWidget(PyDebugLog.create(), 'Python log', where=Qt.TopDockWidgetArea)
+        modelerDock = self._addDockWidget(self.__modeler, 'Modeler', where=Qt.TopDockWidgetArea)
         self.tabifyDockWidget(logDock, viewDock)
+        self.tabifyDockWidget(logDock, modelerDock)
 
         self._addDockWidget(self.timeSlider, where=Qt.LeftDockWidgetArea)
         cameraDock = self._addDockWidget(cameraView, where=Qt.LeftDockWidgetArea)
