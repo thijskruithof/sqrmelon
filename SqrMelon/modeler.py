@@ -26,8 +26,8 @@ class Modeler(QGLWidget):
         self._model =  cgmath.Mat44()
         self._view = cgmath.Mat44()
 
-        self._panning = False
-        self._zooming = False
+        self._adjustingCamera = False
+        self._adjustCameraMode = 0
 
     def initializeGL(self):
         glClearColor(0.7, 0.7, 0.7, 1.0)
@@ -151,44 +151,59 @@ class Modeler(QGLWidget):
     def mousePressEvent(self, mouseEvent):
         super(Modeler, self).mousePressEvent(mouseEvent)
 
-        # Panning?
-        if mouseEvent.buttons() & Qt.LeftButton:
-            self._panning = True
-            self._panStartMousePos = mathutil.Vec2(mouseEvent.posF().x(), mouseEvent.posF().y())
-            self._panStartCamera = self._camera
+        if self._adjustingCamera:
+            return
 
+        self._adjustingCamera = True
+        self._adjustCameraStartMousePos = mathutil.Vec2(mouseEvent.posF().x(), mouseEvent.posF().y())
+        self._adjustCameraStartCamera = self._camera
+
+        # Panning?
+        if mouseEvent.buttons() & Qt.MiddleButton:
+            self._adjustCameraMode = 0
+        # Rotating?
+        elif mouseEvent.buttons() & Qt.LeftButton:
+            self._adjustCameraMode = 1
         # Zooming?
-        if mouseEvent.buttons() & Qt.RightButton:
-            self._zooming = True
-            self._zoomStartMousePos = mathutil.Vec2(mouseEvent.posF().x(), mouseEvent.posF().y())
-            self._zoomStartCamera = self._camera
+        elif mouseEvent.buttons() & Qt.RightButton:
+            self._adjustCameraMode = 2
 
     def mouseMoveEvent(self, mouseEvent):
         super(Modeler, self).mouseMoveEvent(mouseEvent)
 
-        if not self._panning and not self._zooming:
+        if not self._adjustingCamera:
             return
 
         # Panning?
-        if self._panning:
+        if self._adjustCameraMode == 0:
             panSpeed = 0.025
-            deltaMouse = mathutil.Vec2(mouseEvent.posF().x(), mouseEvent.posF().y()) - self._panStartMousePos
-            self._camera = self._panStartCamera * cgmath.Mat44.translate(deltaMouse[0] * -panSpeed, deltaMouse[1] * panSpeed, 0)
+            deltaMouse = mathutil.Vec2(mouseEvent.posF().x(), mouseEvent.posF().y()) - self._adjustCameraStartMousePos
+            self._camera = self._adjustCameraStartCamera * cgmath.Mat44.translate(deltaMouse[0] * -panSpeed, deltaMouse[1] * panSpeed, 0)
+        # Rotating?
+        elif self._adjustCameraMode == 1:
+            rotateSpeed = 0.010
+            deltaMouse = mathutil.Vec2(mouseEvent.posF().x(), mouseEvent.posF().y()) - self._adjustCameraStartMousePos
+            self._camera = self._adjustCameraStartCamera * cgmath.Mat44.rotateY(deltaMouse[0] * rotateSpeed) * cgmath.Mat44.rotateX(deltaMouse[1] * rotateSpeed)
         # Zooming?
-        elif self._zooming:
+        elif self._adjustCameraMode == 2:
             zoomSpeed = 0.025
-            deltaMouse = mathutil.Vec2(mouseEvent.posF().x(), mouseEvent.posF().y()) - self._zoomStartMousePos
-            self._camera = self._zoomStartCamera * cgmath.Mat44.translate(0, 0, deltaMouse[1] * zoomSpeed)
+            deltaMouse = mathutil.Vec2(mouseEvent.posF().x(), mouseEvent.posF().y()) - self._adjustCameraStartMousePos
+            self._camera = self._adjustCameraStartCamera * cgmath.Mat44.translate(0, 0, deltaMouse[1] * zoomSpeed)
 
         self.repaint()
 
     def mouseReleaseEvent(self, mouseEvent):
         super(Modeler, self).mouseReleaseEvent(mouseEvent)
 
-        # Panning?
-        if not (mouseEvent.buttons() & Qt.LeftButton):
-            self._panning = False
+        if not self._adjustingCamera:
+            return
 
+        # Panning?
+        if self._adjustCameraMode == 0:
+            self._adjustingCamera = (mouseEvent.buttons() & Qt.MiddleButton)
+        # Rotating?
+        elif self._adjustCameraMode == 1:
+            self._adjustingCamera = (mouseEvent.buttons() & Qt.LeftButton)
         # Zooming?
-        if not (mouseEvent.buttons() & Qt.RightButton):
-            self._zooming = False
+        elif self._adjustCameraMode == 2:
+            self._adjustingCamera = (mouseEvent.buttons() & Qt.RightButton)
