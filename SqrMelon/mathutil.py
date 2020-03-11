@@ -150,3 +150,4 @@ class Vec2(object):
 
     def __repr__(self):
         return str('Vec2(%s, %s)' % (self.data[0], self.data[1]))
+

@@ -4,6 +4,7 @@ from qtutil import *
 from OpenGL.GL import *
 from OpenGL.GLU import *
 import cgmath
+import mathutil
 
 class Modeler(QGLWidget):
     """
@@ -20,8 +21,13 @@ class Modeler(QGLWidget):
         super(Modeler, self).__init__()
         self.setLayout(vlayout())
 
+        self._camera = cgmath.Mat44.translate(0, 0, 9)
+
         self._model =  cgmath.Mat44()
         self._view = cgmath.Mat44()
+
+        self._panning = False
+        self._zooming = False
 
     def initializeGL(self):
         glClearColor(0.7, 0.7, 0.7, 1.0)
@@ -117,8 +123,6 @@ class Modeler(QGLWidget):
 
 
     def paintGL(self):
-        self._camera = cgmath.Mat44.translate(0, 0, 9)
-
         # view = inverse of camera, which is:
         self._view = \
             cgmath.Mat44.translate(-self._camera[12], -self._camera[13], -self._camera[14]) * \
@@ -140,7 +144,51 @@ class Modeler(QGLWidget):
     def resizeGL(self, w, h):
         self._projection = cgmath.Mat44.scale(1, 1, -1) * cgmath.Mat44.perspective(1.74532925, w / h, 0.1, 100.0)
 
-        side = min(w, h)
-        glViewport((w - side) / 2, (h - side) / 2, side, side)
+        glViewport(0, 0, w, h)
 
         self.__onResize()
+
+    def mousePressEvent(self, mouseEvent):
+        super(Modeler, self).mousePressEvent(mouseEvent)
+
+        # Panning?
+        if mouseEvent.buttons() & Qt.LeftButton:
+            self._panning = True
+            self._panStartMousePos = mathutil.Vec2(mouseEvent.posF().x(), mouseEvent.posF().y())
+            self._panStartCamera = self._camera
+
+        # Zooming?
+        if mouseEvent.buttons() & Qt.RightButton:
+            self._zooming = True
+            self._zoomStartMousePos = mathutil.Vec2(mouseEvent.posF().x(), mouseEvent.posF().y())
+            self._zoomStartCamera = self._camera
+
+    def mouseMoveEvent(self, mouseEvent):
+        super(Modeler, self).mouseMoveEvent(mouseEvent)
+
+        if not self._panning and not self._zooming:
+            return
+
+        # Panning?
+        if self._panning:
+            panSpeed = 0.025
+            deltaMouse = mathutil.Vec2(mouseEvent.posF().x(), mouseEvent.posF().y()) - self._panStartMousePos
+            self._camera = self._panStartCamera * cgmath.Mat44.translate(deltaMouse[0] * -panSpeed, deltaMouse[1] * panSpeed, 0)
+        # Zooming?
+        elif self._zooming:
+            zoomSpeed = 0.025
+            deltaMouse = mathutil.Vec2(mouseEvent.posF().x(), mouseEvent.posF().y()) - self._zoomStartMousePos
+            self._camera = self._zoomStartCamera * cgmath.Mat44.translate(0, 0, deltaMouse[1] * zoomSpeed)
+
+        self.repaint()
+
+    def mouseReleaseEvent(self, mouseEvent):
+        super(Modeler, self).mouseReleaseEvent(mouseEvent)
+
+        # Panning?
+        if not (mouseEvent.buttons() & Qt.LeftButton):
+            self._panning = False
+
+        # Zooming?
+        if not (mouseEvent.buttons() & Qt.RightButton):
+            self._zooming = False
