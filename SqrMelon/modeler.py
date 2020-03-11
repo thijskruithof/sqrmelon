@@ -3,6 +3,7 @@ import functools
 from qtutil import *
 from OpenGL.GL import *
 from OpenGL.GLU import *
+import cgmath
 
 class Modeler(QGLWidget):
     """
@@ -19,21 +20,26 @@ class Modeler(QGLWidget):
         super(Modeler, self).__init__()
         self.setLayout(vlayout())
 
+        self._model =  cgmath.Mat44()
+        self._view = cgmath.Mat44()
+
     def initializeGL(self):
         glClearColor(0.7, 0.7, 0.7, 1.0)
         glClear(GL_COLOR_BUFFER_BIT)
         glClearDepth(1.0)
         glDepthFunc(GL_LESS)
-        glEnable(GL_DEPTH_TEST)
+        #glEnable(GL_DEPTH_TEST)
+        glDisable(GL_DEPTH_TEST)
         glShadeModel(GL_SMOOTH)
+        glDisable(GL_CULL_FACE)
 
         vertex_array_id = glGenVertexArrays(1)
         glBindVertexArray(vertex_array_id)
 
         # A triangle
-        vertex_data = [-1, -1, 0,
-                       1, -1, 0,
-                       0, 1, 0]
+        vertex_data = [-1, -1, 10.0,
+                       1, -1, 10.0,
+                       0, 1, 10.0]
 
         attr_id = 0  # No particular reason for 0,
         # but must match the layout location in the shader.
@@ -62,9 +68,9 @@ class Modeler(QGLWidget):
             GL_VERTEX_SHADER: '''\
                 #version 330 core
                 layout(location = 0) in vec3 vertexPosition_modelspace;
+                uniform mat4 MVP;
                 void main(){
-                  gl_Position.xyz = vertexPosition_modelspace;
-                  gl_Position.w = 1.0;
+                  gl_Position = MVP * vec4(vertexPosition_modelspace, 1);
                 }
                 ''',
             GL_FRAGMENT_SHADER: '''\
@@ -107,35 +113,34 @@ class Modeler(QGLWidget):
 
         glUseProgram(program_id)
 
+        self._shader_program_id = program_id
 
 
     def paintGL(self):
+        self._camera = cgmath.Mat44.translate(0, 0, 9)
+
+        # view = inverse of camera, which is:
+        self._view = \
+            cgmath.Mat44.translate(-self._camera[12], -self._camera[13], -self._camera[14]) * \
+            cgmath.Mat44(self._camera[0], self._camera[4], self._camera[8], 0, self._camera[1], self._camera[5], self._camera[9], 0, self._camera[2], self._camera[6], self._camera[10], 0, 0,0,0, 1)
+
+        mvp = (self._model * self._view) * self._projection
+
+        # Set MVP
+        mvp_uni = glGetUniformLocation(self._shader_program_id, "MVP")
+        glUniformMatrix4fv(mvp_uni, 1, False, (ctypes.c_float * 16)(*mvp))
+
+        # Draw some triangles
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
         glDrawArrays(GL_TRIANGLES, 0, 3)
-
-        # glLoadIdentity()
-        # glTranslatef(-2.5, 0.5, -6.0)
-        # glColor3f( 1.0, 1.5, 0.0 )
-        # glPolygonMode(GL_FRONT, GL_FILL)
-        # glBegin(GL_TRIANGLES)
-        # glVertex3f(2.0,-1.2,0.0)
-        # glVertex3f(2.6,0.0,0.0)
-        # glVertex3f(2.9,-1.2,0.0)
-        # glEnd()
-        # glFlush()
-        # glClear(GL_COLOR_BUFFER_BIT)
-        #
-        # glMatrixMode(GL_PROJECTION)
-        # glLoadIdentity()
-        # glOrtho(-0.5, +0.5, -0.5, +0.5, 4.0, 15.0)
-        # glMatrixMode(GL_MODELVIEW)
-
 
     def __onResize(self):
         self.repaint()
 
     def resizeGL(self, w, h):
-        side = min(w, h);
+        self._projection = cgmath.Mat44.scale(1, 1, -1) * cgmath.Mat44.perspective(1.74532925, w / h, 0.1, 100.0)
+
+        side = min(w, h)
         glViewport((w - side) / 2, (h - side) / 2, side, side)
 
         self.__onResize()
