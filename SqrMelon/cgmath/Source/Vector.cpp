@@ -164,7 +164,7 @@ __m128 Cross(const __m128& a, const __m128& b)
 	tmp1 = _mm_mul_ps(a, tmp1);
 	tmp2 = _mm_mul_ps(b, tmp2);
 	tmp = _mm_sub_ps(tmp1, tmp2);
-	return _MM_SHUFFLE(tmp, tmp, _MM_SHUFFLE(3, 1, 0, 2))
+	return _mm_shuffle_ps(tmp, tmp, _MM_SHUFFLE(3, 1, 0, 2));
 }
 
 

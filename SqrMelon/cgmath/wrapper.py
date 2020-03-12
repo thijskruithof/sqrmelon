@@ -184,11 +184,11 @@ class VectorBase(object):
         assert isinstance(other, self.__class__)
         return _dllHandle.Vector_Dot(self._ptr, other._ptr)
 
-    def normalize(self, other):
+    def normalize(self):
         self._ptr = _dllHandle.Vector_Normalized(self._ptr)
         self._data = None
 
-    def normalized(self, other):
+    def normalized(self):
         return self.__class__(_dllHandle.Vector_Normalized(self._ptr))
 
     def __neg__(self):
