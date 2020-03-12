@@ -16,3 +16,17 @@ SqrMelon/convertcapture/
 *.user
 
 SqrMelon/Player/Release/
+
+*.lib
+
+SqrMelon/cgmath/cgmathx86.dll
+
+SqrMelon/cgmath/cgmathx86d.dll
+
+SqrMelon/cgmath/Source/Build/
+
+SqrMelon/cgmath/Source/Debug/
+
+SqrMelon/cgmath/Source/Release/
+
+*.obj

@@ -5,6 +5,7 @@ from OpenGL.GL import *
 from OpenGL.GLU import *
 import cgmath
 import mathutil
+import math
 
 class Modeler(QGLWidget):
     """
@@ -21,7 +22,7 @@ class Modeler(QGLWidget):
         super(Modeler, self).__init__()
         self.setLayout(vlayout())
 
-        self._camera = cgmath.Mat44.translate(0, 0, 9)
+        self._camera = cgmath.Mat44.translate(0, 1, 0)
 
         self._model =  cgmath.Mat44()
         self._view = cgmath.Mat44()
@@ -42,10 +43,35 @@ class Modeler(QGLWidget):
         vertex_array_id = glGenVertexArrays(1)
         glBindVertexArray(vertex_array_id)
 
-        # A triangle
-        vertex_data = [-1, -1, 10.0,
-                       1, -1, 10.0,
-                       0, 1, 10.0]
+        # A grid in XZ plane
+        vertex_data = []
+        numGridLines = 20
+        gridSpacing = 0.25
+
+        for i in range(-numGridLines, numGridLines+1):
+            # line on X axis
+            vertex_data.append(i*gridSpacing)
+            vertex_data.append(0)
+            vertex_data.append(-numGridLines*gridSpacing)
+            vertex_data.append(i*gridSpacing)
+            vertex_data.append(0)
+            vertex_data.append(numGridLines*gridSpacing)
+            # line on Z axis
+            vertex_data.append(-numGridLines*gridSpacing)
+            vertex_data.append(0)
+            vertex_data.append(i * gridSpacing)
+            vertex_data.append(numGridLines * gridSpacing)
+            vertex_data.append(0)
+            vertex_data.append(i * gridSpacing)
+
+        self._numGridVertices = (numGridLines*2+1)*4
+
+        # vertex_data = [-1, -1, 10.0,
+        #                1, -1, 10.0,
+        #                1, -1, 10.0,
+        #                0, 1, 10.0,
+        #                0, 1, 10.0,
+        #                -1, -1, 10.0]
 
         attr_id = 0  # No particular reason for 0,
         # but must match the layout location in the shader.
@@ -81,9 +107,10 @@ class Modeler(QGLWidget):
                 ''',
             GL_FRAGMENT_SHADER: '''\
                 #version 330 core
-                out vec3 color;
+                uniform vec4 color;
+                out vec3 outColor;
                 void main(){
-                  color = vec3(1,0,0);
+                  outColor = color.xyz;
                 }
                 '''
         }
@@ -101,8 +128,7 @@ class Modeler(QGLWidget):
             info_log_len = glGetShaderiv(shader_id, GL_INFO_LOG_LENGTH)
             if info_log_len:
                 logmsg = glGetShaderInfoLog(shader_id)
-                log.error(logmsg)
-                sys.exit(10)
+                raise Exception(logmsg)
 
             glAttachShader(program_id, shader_id)
             shader_ids.append(shader_id)
@@ -114,13 +140,12 @@ class Modeler(QGLWidget):
         info_log_len = glGetProgramiv(program_id, GL_INFO_LOG_LENGTH)
         if info_log_len:
             logmsg = glGetProgramInfoLog(program_id)
-            log.error(logmsg)
-            sys.exit(11)
+            raise Exception(logmsg)
 
         glUseProgram(program_id)
 
-        self._shader_program_id = program_id
-
+        self._uniform_mvp = glGetUniformLocation(program_id, "MVP")
+        self._uniform_color = glGetUniformLocation(program_id, "color")
 
     def paintGL(self):
         # view = inverse of camera, which is:
@@ -131,12 +156,13 @@ class Modeler(QGLWidget):
         mvp = (self._model * self._view) * self._projection
 
         # Set MVP
-        mvp_uni = glGetUniformLocation(self._shader_program_id, "MVP")
-        glUniformMatrix4fv(mvp_uni, 1, False, (ctypes.c_float * 16)(*mvp))
+        glUniformMatrix4fv( self._uniform_mvp, 1, False, (ctypes.c_float * 16)(*mvp))
 
-        # Draw some triangles
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-        glDrawArrays(GL_TRIANGLES, 0, 3)
+
+        # Draw grid
+        glUniform4f(self._uniform_color, 0.5, 0.5, 0.5, 1.0)
+        glDrawArrays(GL_LINES, 0, self._numGridVertices)
 
     def __onResize(self):
         self.repaint()
@@ -154,6 +180,10 @@ class Modeler(QGLWidget):
         if self._adjustingCamera:
             return
 
+        modifiers = QApplication.keyboardModifiers()
+        if modifiers != Qt.AltModifier:
+            return
+
         self._adjustingCamera = True
         self._adjustCameraStartMousePos = mathutil.Vec2(mouseEvent.posF().x(), mouseEvent.posF().y())
         self._adjustCameraStartCamera = self._camera
@@ -168,6 +198,31 @@ class Modeler(QGLWidget):
         elif mouseEvent.buttons() & Qt.RightButton:
             self._adjustCameraMode = 2
 
+    def axisAngle(self, axis, angle):
+        # https://www.euclideanspace.com/maths/geometry/rotations/conversions/angleToMatrix/
+        c = math.cos(angle)
+        s = math.sin(angle)
+        t = 1 - c
+        m00 = c + axis[0] * axis[0] * t
+        m11 = c + axis[1] * axis[1] * t
+        m22 = c + axis[2] * axis[2] * t
+
+        tmp1 = axis[0] * axis[1] * t
+        tmp2 = axis[2] * s
+        m10 = tmp1 + tmp2
+        m01 = tmp1 - tmp2
+        tmp1 = axis[0] * axis[2] * t
+        tmp2 = axis[1] * s
+        m20 = tmp1 - tmp2
+        m02 = tmp1 + tmp2
+        tmp1 = axis[1] * axis[2] * t
+        tmp2 = axis[0] * s
+        m21 = tmp1 + tmp2
+        m12 = tmp1 - tmp2
+
+        return cgmath.Mat44(m00, m01, m02, 0, m10, m11, m12, 0, m20, m21, m22, 0, 0, 0, 0, 1)
+#        return cgmath.Mat44(m00, m10, m20, 0, m01, m11, m21, 0, m02, m12, m22, 0, 0, 0, 0, 1)
+
     def mouseMoveEvent(self, mouseEvent):
         super(Modeler, self).mouseMoveEvent(mouseEvent)
 
@@ -178,17 +233,35 @@ class Modeler(QGLWidget):
         if self._adjustCameraMode == 0:
             panSpeed = 0.025
             deltaMouse = mathutil.Vec2(mouseEvent.posF().x(), mouseEvent.posF().y()) - self._adjustCameraStartMousePos
-            self._camera = self._adjustCameraStartCamera * cgmath.Mat44.translate(deltaMouse[0] * -panSpeed, deltaMouse[1] * panSpeed, 0)
+            self._camera = cgmath.Mat44.translate(deltaMouse[0] * -panSpeed, deltaMouse[1] * panSpeed, 0) *  self._adjustCameraStartCamera
         # Rotating?
         elif self._adjustCameraMode == 1:
             rotateSpeed = 0.010
             deltaMouse = mathutil.Vec2(mouseEvent.posF().x(), mouseEvent.posF().y()) - self._adjustCameraStartMousePos
-            self._camera = self._adjustCameraStartCamera * cgmath.Mat44.rotateY(deltaMouse[0] * rotateSpeed) * cgmath.Mat44.rotateX(deltaMouse[1] * rotateSpeed)
+
+            # Remove position
+            self._camera = cgmath.Mat44(
+                self._adjustCameraStartCamera[0], self._adjustCameraStartCamera[1], self._adjustCameraStartCamera[2], self._adjustCameraStartCamera[3],
+                self._adjustCameraStartCamera[4], self._adjustCameraStartCamera[5], self._adjustCameraStartCamera[6], self._adjustCameraStartCamera[7],
+                self._adjustCameraStartCamera[8], self._adjustCameraStartCamera[9], self._adjustCameraStartCamera[10], self._adjustCameraStartCamera[11],
+                0,0,0,1)
+
+            # Rotate
+            self._camera = self._camera * cgmath.Mat44.rotateY(deltaMouse[0] * rotateSpeed)
+            self._camera = self._camera * self.axisAngle(cgmath.Vec3(1, 0, 0) * self._camera, deltaMouse[1] * -rotateSpeed)
+
+            # Add position back
+            self._camera = cgmath.Mat44(
+                self._camera[0], self._camera[1], self._camera[2],  self._camera[3],
+                self._camera[4], self._camera[5], self._camera[6],  self._camera[7],
+                self._camera[8], self._camera[9], self._camera[10], self._camera[11],
+                self._adjustCameraStartCamera[12],self._adjustCameraStartCamera[13],self._adjustCameraStartCamera[14],1)
+
         # Zooming?
         elif self._adjustCameraMode == 2:
             zoomSpeed = 0.025
             deltaMouse = mathutil.Vec2(mouseEvent.posF().x(), mouseEvent.posF().y()) - self._adjustCameraStartMousePos
-            self._camera = self._adjustCameraStartCamera * cgmath.Mat44.translate(0, 0, deltaMouse[1] * zoomSpeed)
+            self._camera = cgmath.Mat44.translate(0, 0, deltaMouse[1] * zoomSpeed) * self._adjustCameraStartCamera
 
         self.repaint()
 
