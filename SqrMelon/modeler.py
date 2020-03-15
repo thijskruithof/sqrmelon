@@ -22,10 +22,11 @@ class Modeler(QGLWidget):
         super(Modeler, self).__init__()
         self.setLayout(vlayout())
 
-        self._camera = cgmath.Mat44.translate(0, 1, 0)
+        self._currentModel = None
 
-        self._model =  cgmath.Mat44()
-        self._view = cgmath.Mat44()
+        self._cameraTransform = cgmath.Mat44.translate(0, 1, 0)
+        self._modelTransform =  cgmath.Mat44()
+        self._viewTransform = cgmath.Mat44()
 
         self._adjustingCamera = False
         self._adjustCameraMode = 0
@@ -39,6 +40,9 @@ class Modeler(QGLWidget):
         glDisable(GL_DEPTH_TEST)
         glShadeModel(GL_SMOOTH)
         glDisable(GL_CULL_FACE)
+
+        glEnable(GL_MULTISAMPLE)
+        #glEnable(GL_LINE_SMOOTH)
 
         vertex_array_id = glGenVertexArrays(1)
         glBindVertexArray(vertex_array_id)
@@ -64,14 +68,36 @@ class Modeler(QGLWidget):
             vertex_data.append(0)
             vertex_data.append(i * gridSpacing)
 
+        self._firstVertexIndexGrid = 0
         self._numGridVertices = (numGridLines*2+1)*4
 
-        # vertex_data = [-1, -1, 10.0,
-        #                1, -1, 10.0,
-        #                1, -1, 10.0,
-        #                0, 1, 10.0,
-        #                0, 1, 10.0,
-        #                -1, -1, 10.0]
+        # Construct a unit cube [-1,-1,-1] .. [1,1,1]
+        for a in xrange(-1, 2, 2):
+            for b in xrange(-1, 2, 2):
+                vertex_data.append(-1)
+                vertex_data.append(a)
+                vertex_data.append(b)
+                vertex_data.append(1)
+                vertex_data.append(a)
+                vertex_data.append(b)
+
+                vertex_data.append(a)
+                vertex_data.append(-1)
+                vertex_data.append(b)
+                vertex_data.append(a)
+                vertex_data.append(1)
+                vertex_data.append(b)
+
+                vertex_data.append(a)
+                vertex_data.append(b)
+                vertex_data.append(-1)
+                vertex_data.append(a)
+                vertex_data.append(b)
+                vertex_data.append(1)
+
+        self._firstVertexIndexCube = self._firstVertexIndexGrid + self._numGridVertices
+        self._numCubeVertices = len(vertex_data) - self._firstVertexIndexCube
+
 
         attr_id = 0  # No particular reason for 0,
         # but must match the layout location in the shader.
@@ -149,26 +175,36 @@ class Modeler(QGLWidget):
 
     def paintGL(self):
         # view = inverse of camera, which is:
-        self._view = \
-            cgmath.Mat44.translate(-self._camera[12], -self._camera[13], -self._camera[14]) * \
-            cgmath.Mat44(self._camera[0], self._camera[4], self._camera[8], 0, self._camera[1], self._camera[5], self._camera[9], 0, self._camera[2], self._camera[6], self._camera[10], 0, 0,0,0, 1)
-
-        mvp = (self._model * self._view) * self._projection
-
-        # Set MVP
-        glUniformMatrix4fv( self._uniform_mvp, 1, False, (ctypes.c_float * 16)(*mvp))
+        self._viewTransform = \
+            cgmath.Mat44.translate(-self._cameraTransform[12], -self._cameraTransform[13], -self._cameraTransform[14]) * \
+            cgmath.Mat44(self._cameraTransform[0], self._cameraTransform[4], self._cameraTransform[8], 0, self._cameraTransform[1], self._cameraTransform[5], self._cameraTransform[9], 0, self._cameraTransform[2], self._cameraTransform[6], self._cameraTransform[10], 0, 0, 0, 0, 1)
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 
         # Draw grid
+        mvp = self._viewTransform * self._projection
+        glUniformMatrix4fv(self._uniform_mvp, 1, False, (ctypes.c_float * 16)(*mvp))
         glUniform4f(self._uniform_color, 0.5, 0.5, 0.5, 1.0)
-        glDrawArrays(GL_LINES, 0, self._numGridVertices)
+        glLineWidth(1)
+        glDrawArrays(GL_LINES, self._firstVertexIndexGrid, self._numGridVertices)
+
+        # Draw nodes
+        if not self._currentModel is None:
+            glUniform4f(self._uniform_color, 0.0, 0.0, 0.0, 1.0)
+            glLineWidth(2)
+
+            for node in self._currentModel.nodes:
+                mvp = (node.getModelTransform() * self._viewTransform) * self._projection
+                glUniformMatrix4fv( self._uniform_mvp, 1, False, (ctypes.c_float * 16)(*mvp))
+                glDrawArrays(GL_LINES, self._firstVertexIndexCube, self._numCubeVertices)
+
+
 
     def __onResize(self):
         self.repaint()
 
     def resizeGL(self, w, h):
-        self._projection = cgmath.Mat44.scale(1, 1, -1) * cgmath.Mat44.perspective(1.74532925, w / h, 0.1, 100.0)
+        self._projection = cgmath.Mat44.scale(1, 1, -1) * cgmath.Mat44.perspective(math.radians(90), w / h, 0.1, 100.0)
 
         glViewport(0, 0, w, h)
 
@@ -186,7 +222,7 @@ class Modeler(QGLWidget):
 
         self._adjustingCamera = True
         self._adjustCameraStartMousePos = mathutil.Vec2(mouseEvent.posF().x(), mouseEvent.posF().y())
-        self._adjustCameraStartCamera = self._camera
+        self._adjustCameraStartCamera = self._cameraTransform
 
         # Panning?
         if mouseEvent.buttons() & Qt.MiddleButton:
@@ -233,35 +269,35 @@ class Modeler(QGLWidget):
         if self._adjustCameraMode == 0:
             panSpeed = 0.025
             deltaMouse = mathutil.Vec2(mouseEvent.posF().x(), mouseEvent.posF().y()) - self._adjustCameraStartMousePos
-            self._camera = cgmath.Mat44.translate(deltaMouse[0] * -panSpeed, deltaMouse[1] * panSpeed, 0) *  self._adjustCameraStartCamera
+            self._cameraTransform = cgmath.Mat44.translate(deltaMouse[0] * -panSpeed, deltaMouse[1] * panSpeed, 0) * self._adjustCameraStartCamera
         # Rotating?
         elif self._adjustCameraMode == 1:
             rotateSpeed = 0.010
             deltaMouse = mathutil.Vec2(mouseEvent.posF().x(), mouseEvent.posF().y()) - self._adjustCameraStartMousePos
 
             # Remove position
-            self._camera = cgmath.Mat44(
+            self._cameraTransform = cgmath.Mat44(
                 self._adjustCameraStartCamera[0], self._adjustCameraStartCamera[1], self._adjustCameraStartCamera[2], self._adjustCameraStartCamera[3],
                 self._adjustCameraStartCamera[4], self._adjustCameraStartCamera[5], self._adjustCameraStartCamera[6], self._adjustCameraStartCamera[7],
                 self._adjustCameraStartCamera[8], self._adjustCameraStartCamera[9], self._adjustCameraStartCamera[10], self._adjustCameraStartCamera[11],
                 0,0,0,1)
 
             # Rotate
-            self._camera = self._camera * cgmath.Mat44.rotateY(deltaMouse[0] * rotateSpeed)
-            self._camera = self._camera * self.axisAngle(cgmath.Vec3(1, 0, 0) * self._camera, deltaMouse[1] * -rotateSpeed)
+            self._cameraTransform = self._cameraTransform * cgmath.Mat44.rotateY(deltaMouse[0] * rotateSpeed)
+            self._cameraTransform = self._cameraTransform * self.axisAngle(cgmath.Vec3(1, 0, 0) * self._cameraTransform, deltaMouse[1] * -rotateSpeed)
 
             # Add position back
-            self._camera = cgmath.Mat44(
-                self._camera[0], self._camera[1], self._camera[2],  self._camera[3],
-                self._camera[4], self._camera[5], self._camera[6],  self._camera[7],
-                self._camera[8], self._camera[9], self._camera[10], self._camera[11],
+            self._cameraTransform = cgmath.Mat44(
+                self._cameraTransform[0], self._cameraTransform[1], self._cameraTransform[2],  self._cameraTransform[3],
+                self._cameraTransform[4], self._cameraTransform[5], self._cameraTransform[6],  self._cameraTransform[7],
+                self._cameraTransform[8], self._cameraTransform[9], self._cameraTransform[10], self._cameraTransform[11],
                 self._adjustCameraStartCamera[12],self._adjustCameraStartCamera[13],self._adjustCameraStartCamera[14],1)
 
         # Zooming?
         elif self._adjustCameraMode == 2:
             zoomSpeed = 0.025
             deltaMouse = mathutil.Vec2(mouseEvent.posF().x(), mouseEvent.posF().y()) - self._adjustCameraStartMousePos
-            self._camera = cgmath.Mat44.translate(0, 0, deltaMouse[1] * zoomSpeed) * self._adjustCameraStartCamera
+            self._cameraTransform = cgmath.Mat44.translate(0, 0, deltaMouse[1] * zoomSpeed) * self._adjustCameraStartCamera
 
         self.repaint()
 
@@ -280,3 +316,7 @@ class Modeler(QGLWidget):
         # Zooming?
         elif self._adjustCameraMode == 2:
             self._adjustingCamera = (mouseEvent.buttons() & Qt.RightButton)
+
+    def setModel(self, model):
+        self._currentModel = model
+        self.repaint()
