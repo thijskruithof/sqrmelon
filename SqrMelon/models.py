@@ -4,7 +4,7 @@ from qtutil import *
 
 class ModelNodeBase(object):
     def __init__(self):
-        self._name = self.__class__.__name__
+        self._name = self.__class__.__name__[9:]
         self._translation = cgmath.Vec3(0,0,0)
         #self._rotation = cgmath.Vec3(0,0,0)
         self._scale = 1
@@ -60,7 +60,7 @@ class ModelNodeBox(ModelNodeBase):
 
 class Model(object):
     def __init__(self):
-        self._name = "Unnamed model"
+        self._name = "Model"
         self._nodes = []
         self._models = None
 
@@ -101,26 +101,26 @@ class Model(object):
 
 
 class Models(QObject):
+    preModelAdded = pyqtSignal(object)
+    postModelAdded = pyqtSignal(object)
+    preModelRemoved = pyqtSignal(object)
+    postModelRemoved = pyqtSignal(object)
     preNodeAddedToModel = pyqtSignal(object, object)
     postNodeAddedToModel = pyqtSignal(object, object)
     preNodeRemovedFromModel = pyqtSignal(object, object)
     postNodeRemovedFromModel = pyqtSignal(object, object)
     modelChanged = pyqtSignal(object)
 
+
     def __init__(self):
         super(Models, self).__init__()
         self._models = []
 
-        # temp:
+        # Always start with a box
         m = self.addModel()
-        m.name = "First model"
         b = m.addBox()
         b.size = cgmath.Vec3(0.2, 0.1, 0.1)
         b.translation = cgmath.Vec3(0.0, 0.5, 0.0)
-        m.addBox()
-
-        m = self.addModel()
-        m.name = "Second model"
         m.addBox()
 
     @property
@@ -130,5 +130,12 @@ class Models(QObject):
     def addModel(self):
         model = Model()
         model.models = self
+        self.preModelAdded.emit(model)
         self._models.append(model)
+        self.postModelAdded.emit(model)
         return model
+
+    def removeModel(self, model):
+        self.preModelRemoved.emit(model)
+        self._models.remove(model)
+        self.postModelRemoved.emit(model)
