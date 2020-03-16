@@ -24,7 +24,7 @@ class Modeler(QGLWidget):
 
         self._currentModel = None
 
-        self._cameraTransform = cgmath.Mat44.translate(0, 1, 0)
+        self._cameraTransform = cgmath.Mat44.translate(0, 1, -2)
         self._modelTransform =  cgmath.Mat44()
         self._viewTransform = cgmath.Mat44()
 
@@ -320,3 +320,7 @@ class Modeler(QGLWidget):
     def setModel(self, model):
         self._currentModel = model
         self.repaint()
+
+    def onModelChanged(self, model):
+        if model == self._currentModel:
+            self.repaint()

@@ -1,4 +1,5 @@
 import cgmath
+from qtutil import *
 
 
 class ModelNodeBase(object):
@@ -61,36 +62,73 @@ class Model(object):
     def __init__(self):
         self._name = "Unnamed model"
         self._nodes = []
+        self._models = None
+
+    @property
+    def models(self):
+        return self._models
+
+    @models.setter
+    def models(self, models):
+        self._models = models
 
     @property
     def name(self):
         return self._name
 
+    @name.setter
+    def name(self, value):
+        self._name = value
+
     @property
     def nodes(self):
         return tuple(self._nodes)
 
-    def addNode(self, node):
+    def addBox(self):
+        node = ModelNodeBox()
         node.model = self
+        self._models.preNodeAddedToModel.emit(self, node)
         self._nodes.append(node)
+        self._models.postNodeAddedToModel.emit(self, node)
+        self._models.modelChanged.emit(self)
+        return node
+
+    def removeNode(self, node):
+        self._models.preNodeRemovedFromModel.emit(self, node)
+        self._nodes.remove(node)
+        self._models.postNodeRemovedFromModel.emit(self, node)
+        self._models.modelChanged.emit(self)
 
 
-class Models(object):
+class Models(QObject):
+    preNodeAddedToModel = pyqtSignal(object, object)
+    postNodeAddedToModel = pyqtSignal(object, object)
+    preNodeRemovedFromModel = pyqtSignal(object, object)
+    postNodeRemovedFromModel = pyqtSignal(object, object)
+    modelChanged = pyqtSignal(object)
+
     def __init__(self):
+        super(Models, self).__init__()
         self._models = []
 
         # temp:
-        m = Model()
-        m.addNode(ModelNodeBox())
-        m.addNode(ModelNodeBox())
-        m.nodes[0].size = cgmath.Vec3(0.2, 0.1, 0.1)
-        m.nodes[0].translation = cgmath.Vec3(0.0, 0.5, 0.0)
-        self._models.append(m)
+        m = self.addModel()
+        m.name = "First model"
+        b = m.addBox()
+        b.size = cgmath.Vec3(0.2, 0.1, 0.1)
+        b.translation = cgmath.Vec3(0.0, 0.5, 0.0)
+        m.addBox()
 
-        m = Model()
-        m.addNode(ModelNodeBox())
-        self._models.append(m)
+        m = self.addModel()
+        m.name = "Second model"
+        m.addBox()
 
     @property
     def models(self):
         return tuple(self._models)
+
+    def addModel(self):
+        model = Model()
+        model.models = self
+        self._models.append(model)
+        return model

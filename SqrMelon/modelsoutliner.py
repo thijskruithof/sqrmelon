@@ -1,13 +1,32 @@
 import cgmath
 from qtutil import *
 from models import *
-
+import icons
 
 class ModelsModel(QAbstractItemModel):
     def __init__(self, models):
         super(ModelsModel, self).__init__()
 
         self._models = models
+        self._models.preNodeAddedToModel.connect(self._onPreNodeAddedToModel)
+        self._models.postNodeAddedToModel.connect(self._onPostNodeAddedToModel)
+        self._models.preNodeRemovedFromModel.connect(self._onPreNodeRemovedFromModel)
+        self._models.postNodeRemovedFromModel.connect(self._onPostNodeRemovedFromModel)
+
+    def _onPreNodeAddedToModel(self, model, node):
+        modelIndex = self.index(self._models.models.index(model), 0)
+        self.beginInsertRows(modelIndex, len(model.nodes), len(model.nodes))
+
+    def _onPostNodeAddedToModel(self, model, node):
+        self.endInsertRows()
+
+    def _onPreNodeRemovedFromModel(self, model, node):
+        modelIndex = self.index(self._models.models.index(model), 0)
+        nodeIndex = model.nodes.index(node)
+        self.beginRemoveRows(modelIndex, nodeIndex, nodeIndex)
+
+    def _onPostNodeRemovedFromModel(self, model, node):
+        self.endRemoveRows()
 
     def rowCount(self, parent=QModelIndex()):
         # a row per model
@@ -40,10 +59,14 @@ class ModelsModel(QAbstractItemModel):
 
     def index(self, row, column, parent = QModelIndex()):
         if not parent.isValid():
-            return self.createIndex(row, column, self._models.models[row])
+            if row >= 0 and row < len(self._models.models):
+                return self.createIndex(row, column, self._models.models[row])
         else:
             model = parent.internalPointer()
-            return self.createIndex(row, column, model.nodes[row])
+            if row >= 0 and row < len(model.nodes):
+                return self.createIndex(row, column, model.nodes[row])
+
+        return QModelIndex()
 
     def parent(self, child):
         if child.isValid():
@@ -69,6 +92,7 @@ class ModelsOutliner(QWidget):
         super(ModelsOutliner, self).__init__()
         self.setLayout(vlayout())
 
+        self._models = models
         self._model = ModelsModel(models)
 
         self._tree = QTreeView(self)
@@ -78,19 +102,46 @@ class ModelsOutliner(QWidget):
         self.layout().addWidget(self._tree)
 
         self._tree.selectionModel().selectionChanged.connect(self._onSelectionChanged)
+        self._tree.setContextMenuPolicy(Qt.CustomContextMenu)
+        self._tree.customContextMenuRequested.connect(self._onContextMenu)
+
+        self._contextMenuModel = QMenu()
+        self._contextMenuModel.addAction(icons.get('box-48'), 'Add box').triggered.connect(self._onAddBox)
+
+        self._contextMenuModelNode = QMenu()
+        self._contextMenuModelNode.addAction(icons.get('Delete Node-48'), 'Delete').triggered.connect(self._onDeleteModelOrNode)
+
+    def _getSelectedModel(self):
+        # Find out which model is selected
+        index = self._tree.currentIndex()
+        if (index is None) or not index.isValid():
+            return None
+        data = index.internalPointer()
+        if isinstance(data, Model):
+            return data
+        if isinstance(data, ModelNodeBase):
+            return data.model
+        return None
 
     def _onSelectionChanged(self, selected, deselected):
-        selectedModel = None
+        self.selectedModelChanged.emit(self._getSelectedModel())
 
-        # Find out which model is selected
-        for index in selected.indexes():
-            data = index.data(Qt.UserRole)
+    def _onContextMenu(self, position):
+        index = self._tree.currentIndex()
+        if index.isValid():
+            data = index.internalPointer()
             if isinstance(data, Model):
-                selectedModel = data
-                break
-            elif isinstance(data, ModelNodeBase):
-                selectedModel = data.model
-                break
+                self._contextMenuModel.popup(self.mapToGlobal(position))
+            if isinstance(data, ModelNodeBase):
+                self._contextMenuModelNode.popup(self.mapToGlobal(position))
 
-        self.selectedModelChanged.emit(selectedModel)
+    def _onAddBox(self):
+        model = self._getSelectedModel()
+        model.addBox()
 
+    def _onDeleteModelOrNode(self):
+        index = self._tree.currentIndex()
+        if index.isValid():
+            data = index.internalPointer()
+            if isinstance(data, ModelNodeBase):
+                data.model.removeNode(data)
