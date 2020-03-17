@@ -23,6 +23,7 @@ class Modeler(QGLWidget):
         self.setLayout(vlayout())
 
         self._currentModel = None
+        self._currentModelNode = None
 
         self._cameraTransform = cgmath.Mat44.translate(0, 1, -2)
         self._modelTransform =  cgmath.Mat44()
@@ -190,12 +191,21 @@ class Modeler(QGLWidget):
 
         # Draw nodes
         if not self._currentModel is None:
-            glUniform4f(self._uniform_color, 0.0, 0.0, 0.0, 1.0)
-            glLineWidth(2)
+            glLineWidth(1.5)
 
-            for node in self._currentModel.nodes:
+            # Put current model node at the end of the list
+            nodes = list(self._currentModel.nodes)
+            if not self._currentModelNode is None:
+                nodes.remove(self._currentModelNode)
+                nodes.append(self._currentModelNode)
+
+            for node in nodes:
                 mvp = (node.getModelTransform() * self._viewTransform) * self._projection
                 glUniformMatrix4fv( self._uniform_mvp, 1, False, (ctypes.c_float * 16)(*mvp))
+                if node == self._currentModelNode:
+                    glUniform4f(self._uniform_color, 1.0, 1.0, 0.0, 1.0)
+                else:
+                    glUniform4f(self._uniform_color, 0.0, 0.0, 0.0, 1.0)
                 glDrawArrays(GL_LINES, self._firstVertexIndexCube, self._numCubeVertices)
 
 
@@ -317,8 +327,9 @@ class Modeler(QGLWidget):
         elif self._adjustCameraMode == 2:
             self._adjustingCamera = (mouseEvent.buttons() & Qt.RightButton)
 
-    def setModel(self, model):
+    def setModelNode(self, model, node):
         self._currentModel = model
+        self._currentModelNode = node
         self.repaint()
 
     def onModelChanged(self, model):

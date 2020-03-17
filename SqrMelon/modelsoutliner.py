@@ -103,7 +103,7 @@ class ModelsOutliner(QWidget):
     Models outliner window
     """
 
-    selectedModelChanged = pyqtSignal(object)
+    selectedModelNodeChanged = pyqtSignal(object, object)
 
     def __init__(self, models):
         super(ModelsOutliner, self).__init__()
@@ -142,20 +142,21 @@ class ModelsOutliner(QWidget):
         self._contextMenuModelNode = QMenu()
         self._contextMenuModelNode.addAction(icons.get('Delete Node-48'), 'Delete').triggered.connect(self._onDeleteModelOrNode)
 
-    def _getSelectedModel(self):
-        # Find out which model is selected
+    def _getSelectedModelAndNode(self):
+        # Find out which model or modelnode is selected
         index = self._tree.currentIndex()
         if (index is None) or not index.isValid():
-            return None
+            return [ None, None ]
         data = index.internalPointer()
         if isinstance(data, Model):
-            return data
+            return [ data, None ]
         if isinstance(data, ModelNodeBase):
-            return data.model
-        return None
+            return [ data.model, data ]
+        return [ None, None ]
 
     def _onSelectionChanged(self, selected, deselected):
-        self.selectedModelChanged.emit(self._getSelectedModel())
+        modelAndNode = self._getSelectedModelAndNode()
+        self.selectedModelNodeChanged.emit(modelAndNode[0], modelAndNode[1])
 
     def _onContextMenu(self, position):
         index = self._tree.currentIndex()
@@ -167,7 +168,7 @@ class ModelsOutliner(QWidget):
                 self._contextMenuModelNode.popup(self.mapToGlobal(position))
 
     def _onAddBox(self):
-        model = self._getSelectedModel()
+        model = self._getSelectedModelAndNode()[0]
         model.addBox()
 
     def _onDeleteModelOrNode(self):
