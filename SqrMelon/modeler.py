@@ -7,9 +7,13 @@ import cgmath
 import mathutil
 import math
 
+class ModelerModifierMode:
+    SELECT = 0
+    TRANSLATE = 1
+
 class Modeler(QGLWidget):
     """
-    Modeler window
+    Modeler window/viewport
     """
     def __init__(self):
 
@@ -32,13 +36,17 @@ class Modeler(QGLWidget):
         self._adjustingCamera = False
         self._adjustCameraMode = 0
 
+        self._modifierMode = ModelerModifierMode.SELECT
+
+        self.setFocusPolicy(Qt.StrongFocus)
+
     def initializeGL(self):
         glClearColor(0.7, 0.7, 0.7, 1.0)
         glClear(GL_COLOR_BUFFER_BIT)
         glClearDepth(1.0)
         glDepthFunc(GL_LESS)
-        #glEnable(GL_DEPTH_TEST)
-        glDisable(GL_DEPTH_TEST)
+        glEnable(GL_DEPTH_TEST)
+        #glDisable(GL_DEPTH_TEST)
         glShadeModel(GL_SMOOTH)
         glDisable(GL_CULL_FACE)
 
@@ -55,19 +63,11 @@ class Modeler(QGLWidget):
 
         for i in range(-numGridLines, numGridLines+1):
             # line on X axis
-            vertex_data.append(i*gridSpacing)
-            vertex_data.append(0)
-            vertex_data.append(-numGridLines*gridSpacing)
-            vertex_data.append(i*gridSpacing)
-            vertex_data.append(0)
-            vertex_data.append(numGridLines*gridSpacing)
+            vertex_data.extend([i*gridSpacing, 0, -numGridLines*gridSpacing])
+            vertex_data.extend([i*gridSpacing, 0, numGridLines*gridSpacing])
             # line on Z axis
-            vertex_data.append(-numGridLines*gridSpacing)
-            vertex_data.append(0)
-            vertex_data.append(i * gridSpacing)
-            vertex_data.append(numGridLines * gridSpacing)
-            vertex_data.append(0)
-            vertex_data.append(i * gridSpacing)
+            vertex_data.extend([-numGridLines*gridSpacing, 0, i * gridSpacing])
+            vertex_data.extend([numGridLines * gridSpacing, 0, i * gridSpacing])
 
         self._firstVertexIndexGrid = 0
         self._numGridVertices = (numGridLines*2+1)*4
@@ -75,30 +75,32 @@ class Modeler(QGLWidget):
         # Construct a unit cube [-1,-1,-1] .. [1,1,1]
         for a in xrange(-1, 2, 2):
             for b in xrange(-1, 2, 2):
-                vertex_data.append(-1)
-                vertex_data.append(a)
-                vertex_data.append(b)
-                vertex_data.append(1)
-                vertex_data.append(a)
-                vertex_data.append(b)
-
-                vertex_data.append(a)
-                vertex_data.append(-1)
-                vertex_data.append(b)
-                vertex_data.append(a)
-                vertex_data.append(1)
-                vertex_data.append(b)
-
-                vertex_data.append(a)
-                vertex_data.append(b)
-                vertex_data.append(-1)
-                vertex_data.append(a)
-                vertex_data.append(b)
-                vertex_data.append(1)
+                vertex_data.extend([-1, a, b])
+                vertex_data.extend([1, a, b])
+                vertex_data.extend([a, -1, b])
+                vertex_data.extend([a, 1, b])
+                vertex_data.extend([a, b, -1])
+                vertex_data.extend([a, b, 1])
 
         self._firstVertexIndexCube = self._firstVertexIndexGrid + self._numGridVertices
-        self._numCubeVertices = len(vertex_data) - self._firstVertexIndexCube
+        self._numCubeVertices = len(vertex_data)/3 - self._firstVertexIndexCube
 
+        # Construct an arrow (on 1,0,0 axis)
+        arrowTipLen = 0.05
+        arrowTipWidth = 0.03
+        vertex_data.extend([0, 0, 0])
+        vertex_data.extend([1, 0, 0])
+        vertex_data.extend([1-arrowTipLen, arrowTipWidth, arrowTipWidth])
+        vertex_data.extend([1, 0, 0])
+        vertex_data.extend([1-arrowTipLen, arrowTipWidth, -arrowTipWidth])
+        vertex_data.extend([1, 0, 0])
+        vertex_data.extend([1-arrowTipLen, -arrowTipWidth, arrowTipWidth])
+        vertex_data.extend([1, 0, 0])
+        vertex_data.extend([1-arrowTipLen, -arrowTipWidth, -arrowTipWidth])
+        vertex_data.extend([1, 0, 0])
+
+        self._firstVertexIndexArrow = self._firstVertexIndexCube + self._numCubeVertices
+        self._numArrowVertices = len(vertex_data)/3 - self._firstVertexIndexArrow
 
         attr_id = 0  # No particular reason for 0,
         # but must match the layout location in the shader.
@@ -191,7 +193,7 @@ class Modeler(QGLWidget):
 
         # Draw nodes
         if not self._currentModel is None:
-            glLineWidth(1.5)
+            glLineWidth(1.2)
 
             # Put current model node at the end of the list
             nodes = list(self._currentModel.nodes)
@@ -199,8 +201,10 @@ class Modeler(QGLWidget):
                 nodes.remove(self._currentModelNode)
                 nodes.append(self._currentModelNode)
 
+            # Draw all nodes
             for node in nodes:
-                mvp = (node.getModelTransform() * self._viewTransform) * self._projection
+                modelTransform = node.getModelTransform()
+                mvp = (modelTransform * self._viewTransform) * self._projection
                 glUniformMatrix4fv( self._uniform_mvp, 1, False, (ctypes.c_float * 16)(*mvp))
                 if node == self._currentModelNode:
                     glUniform4f(self._uniform_color, 1.0, 1.0, 0.0, 1.0)
@@ -208,7 +212,31 @@ class Modeler(QGLWidget):
                     glUniform4f(self._uniform_color, 0.0, 0.0, 0.0, 1.0)
                 glDrawArrays(GL_LINES, self._firstVertexIndexCube, self._numCubeVertices)
 
+                # Draw our modifier for this node?
+                if self._modifierMode != ModelerModifierMode.SELECT and node == self._currentModelNode:
+                    self._drawModifier(modelTransform)
 
+    def _drawModifier(self, modelTransform):
+        glLineWidth(1.5)
+
+        if self._modifierMode == ModelerModifierMode.TRANSLATE:
+            modifierSize = 0.4
+            # X
+            mv = cgmath.Mat44.translate(modelTransform[12], modelTransform[13], modelTransform[14]) *  self._viewTransform
+            mvp = cgmath.Mat44.scale(modifierSize*mv[14], modifierSize*mv[14], modifierSize*mv[14]) * mv * self._projection
+            glUniformMatrix4fv(self._uniform_mvp, 1, False, (ctypes.c_float * 16)(*mvp))
+            glUniform4f(self._uniform_color, 1.0, 0.0, 0.0, 1.0)
+            glDrawArrays(GL_LINES, self._firstVertexIndexArrow, self._numArrowVertices)
+            # Y
+            mvp = cgmath.Mat44.rotateZ(math.radians(90)) * mvp
+            glUniformMatrix4fv(self._uniform_mvp, 1, False, (ctypes.c_float * 16)(*mvp))
+            glUniform4f(self._uniform_color, 0.0, 1.0, 0.0, 1.0)
+            glDrawArrays(GL_LINES, self._firstVertexIndexArrow, self._numArrowVertices)
+            # Z
+            mvp = cgmath.Mat44.rotateY(math.radians(-90)) * mvp
+            glUniformMatrix4fv(self._uniform_mvp, 1, False, (ctypes.c_float * 16)(*mvp))
+            glUniform4f(self._uniform_color, 0.0, 0.0, 1.0, 1.0)
+            glDrawArrays(GL_LINES, self._firstVertexIndexArrow, self._numArrowVertices)
 
     def __onResize(self):
         self.repaint()
@@ -326,6 +354,15 @@ class Modeler(QGLWidget):
         # Zooming?
         elif self._adjustCameraMode == 2:
             self._adjustingCamera = (mouseEvent.buttons() & Qt.RightButton)
+
+    def keyPressEvent(self, event):
+        super(Modeler, self).keyPressEvent(event)
+        if event.key() == Qt.Key_Q or event.key() == Qt.Key_Escape:
+            self._modifierMode = ModelerModifierMode.SELECT
+            self.repaint()
+        elif event.key() == Qt.Key_W:
+            self._modifierMode = ModelerModifierMode.TRANSLATE
+            self.repaint()
 
     def setModelNode(self, model, node):
         self._currentModel = model

@@ -3,6 +3,9 @@ from qtutil import *
 
 
 class ModelNodeBase(object):
+    """
+    Base class for a node of the Model
+    """
     def __init__(self):
         self._name = self.__class__.__name__[9:]
         self._translation = cgmath.Vec3(0,0,0)
@@ -43,6 +46,9 @@ class ModelNodeBase(object):
         return cgmath.Mat44.scale(self._scale, self._scale, self._scale) * cgmath.Mat44.translate(self._translation[0], self._translation[1], self._translation[2])
 
 class ModelNodeBox(ModelNodeBase):
+    """
+    Box node of a model
+    """
     def __init__(self):
         super(ModelNodeBox, self).__init__()
         self._size = cgmath.Vec3(1,1,1)
@@ -59,6 +65,9 @@ class ModelNodeBox(ModelNodeBase):
         self._size = cgmath.Vec3(s)
 
 class Model(object):
+    """
+    Model consisting of a collection of nodes
+    """
     def __init__(self):
         self._name = "Model"
         self._nodes = []
@@ -101,6 +110,9 @@ class Model(object):
 
 
 class Models(QObject):
+    """
+    Collection of models
+    """
     preModelAdded = pyqtSignal(object)
     postModelAdded = pyqtSignal(object)
     preModelRemoved = pyqtSignal(object)

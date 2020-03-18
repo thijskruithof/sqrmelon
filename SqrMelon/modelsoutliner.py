@@ -4,6 +4,10 @@ from models import *
 import icons
 
 class ModelsModel(QAbstractItemModel):
+    """
+    ItemModel wrapped around a Models object,
+    to expose it to our models outliner.
+    """
     def __init__(self, models):
         super(ModelsModel, self).__init__()
 
@@ -102,7 +106,6 @@ class ModelsOutliner(QWidget):
     """
     Models outliner window
     """
-
     selectedModelNodeChanged = pyqtSignal(object, object)
 
     def __init__(self, models):
