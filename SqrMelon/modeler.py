@@ -118,6 +118,7 @@ class ModifierMode:
     TRANSLATE = 1
 
 class Modeler(QGLWidget):
+
     """
     Modeler window/viewport
     """
@@ -131,6 +132,8 @@ class Modeler(QGLWidget):
 
         super(Modeler, self).__init__()
         self.setLayout(vlayout())
+
+        self._updateMinMouseClickDist()
 
         self._primitives = Primitives()
         self._currentModel = None
@@ -147,6 +150,10 @@ class Modeler(QGLWidget):
         self._modifierAxis = ModifierAxis.NONE
 
         self.setFocusPolicy(Qt.StrongFocus)
+
+    def _updateMinMouseClickDist(self):
+        minDist = 10 / (0.5 * min(self.width(), self.height()))
+        self._minMouseClickDistSq = minDist*minDist
 
     def initializeGL(self):
         glClearColor(0.7, 0.7, 0.7, 1.0)
@@ -331,29 +338,45 @@ class Modeler(QGLWidget):
 
     # Determine which modifier axis the given mouse position is overlapping with.
     def _getMouseOnModifierAxis(self, mousePosX, mousePosY):
-        modifierMvp = self._getModifierMVP()
-
         screenPos = self._convertMousePosToScreenPos(mousePosX, mousePosY)
-
-        minDist = 10 / (0.5 * min(self.width(), self.height()))
+        modifierMvp = self._getModifierMVP()
 
         if self._modifierMode == ModifierMode.TRANSLATE:
             # X axis?
             mvp = modifierMvp
-            if self._primitives.isMouseOn(PrimitiveType.ARROW, mvp, screenPos, minDist*minDist):
+            if self._primitives.isMouseOn(PrimitiveType.ARROW, mvp, screenPos, self._minMouseClickDistSq):
                 return ModifierAxis.X
             # Y axis?
             mvp = cgmath.Mat44.rotateZ(math.radians(90)) * mvp
-            if self._primitives.isMouseOn(PrimitiveType.ARROW, mvp, screenPos, minDist * minDist):
+            if self._primitives.isMouseOn(PrimitiveType.ARROW, mvp, screenPos, self._minMouseClickDistSq):
                 return ModifierAxis.Y
             # Z axis?
             mvp = cgmath.Mat44.rotateY(math.radians(-90)) * mvp
-            if self._primitives.isMouseOn(PrimitiveType.ARROW, mvp, screenPos, minDist * minDist):
+            if self._primitives.isMouseOn(PrimitiveType.ARROW, mvp, screenPos, self._minMouseClickDistSq):
                 return ModifierAxis.Z
 
         return ModifierAxis.NONE
 
+    # Determine which model node the given mouse position is overlapping with.
+    def _getMouseOnModelNode(self, mousePosX, mousePosY):
+        screenPos = self._convertMousePosToScreenPos(mousePosX, mousePosY)
+
+        if self._currentModel is None:
+            return None
+
+        nodes = list(self._currentModel.nodes)
+
+        for node in nodes:
+            modelTransform = node.getModelTransform()
+            mvp = (modelTransform * self._viewTransform) * self._projection
+
+            if self._primitives.isMouseOn(PrimitiveType.CUBE, mvp, screenPos, self._minMouseClickDistSq):
+                return node
+
+        return None
+
     def __onResize(self):
+        self._updateMinMouseClickDist()
         self.repaint()
 
     def resizeGL(self, w, h):
@@ -389,15 +412,25 @@ class Modeler(QGLWidget):
 
         # Simple click?
         else:
+            clickHandled = False
+
             # Did we click on the modifier, if its visible?
             if self._modifierMode != ModifierMode.SELECT and self._isModifierVisible():
-                self._modifierAxis = self._getMouseOnModifierAxis(mouseEvent.posF().x(), mouseEvent.posF().y())
+                axis = self._getMouseOnModifierAxis(mouseEvent.posF().x(), mouseEvent.posF().y())
 
-                if self._modifierAxis != ModifierAxis.NONE:
+                if axis != ModifierAxis.NONE:
+                    clickHandled = True
+                    self._modifierAxis = axis
                     self._modifyStartMouseScreenPos = self._convertMousePosToScreenPos(mouseEvent.posF().x(), mouseEvent.posF().y())
                     self._modifyStartModelTranslation = self._currentModelNode.translation
+                    self.repaint()
 
+            # Did we otherwise click on a node of the model?
+            if not self._currentModel is None and not clickHandled:
+                clickHandled = True
+                self._currentModelNode = self._getMouseOnModelNode(mouseEvent.posF().x(), mouseEvent.posF().y())
                 self.repaint()
+
 
     # Create a rotation matrix from an axis and an angle
     # Somehow the one from cgmath.Mat44 wasn't correct (for me)
