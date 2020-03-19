@@ -70,6 +70,45 @@ class Primitives:
         glDrawArrays(GL_LINES, self._firstVertexIndex[primitiveType], self._numVertices[primitiveType])
         return
 
+    def _getSqDistanceToLine(self, mvp, mousePos, vertexIndex0, vertexIndex1):
+        v0 = cgmath.Vec4(self._vertex_data[vertexIndex0 * 3], self._vertex_data[vertexIndex0 * 3 + 1],
+                         self._vertex_data[vertexIndex0 * 3 + 2], 1.0)
+        v1 = cgmath.Vec4(self._vertex_data[vertexIndex1 * 3 ], self._vertex_data[vertexIndex1 * 3 + 1],
+                         self._vertex_data[vertexIndex1 * 3 + 2], 1.0)
+
+        v0 = v0 * mvp
+        v1 = v1 * mvp
+        v0x = v0[0] / v0[3]
+        v0y = v0[1] / v0[3]
+        v1x = v1[0] / v1[3]
+        v1y = v1[1] / v1[3]
+
+        v1v0x = v1x - v0x
+        v1v0y = v1y - v0y
+        len = v1v0x*v1v0x + v1v0y*v1v0y
+
+        if len <= 0.00001:
+            # Line has length of nearly 0
+            return (mousePos[0] - v0x)*(mousePos[0] - v0x) + (mousePos[1] - v0y)*(mousePos[1] - v0y)
+
+        t = ((mousePos[0] - v0x)*v1v0x + (mousePos[1] - v0y) * v1v0y) / len
+        t = max(0.0, min(1.0, t))
+
+        px = v0x + t * v1v0x
+        py = v0y + t * v1v0y
+
+        distSq = (mousePos[0] - px)*(mousePos[0] - px) + (mousePos[1] - py)*(mousePos[1] - py)
+        return distSq
+
+    def isMouseOn(self, primitiveType, mvp, mousePosScreenX, mousePosScreenY, minMouseDistSq):
+        mousePos = cgmath.Vec4(mousePosScreenX, mousePosScreenY, 0, 1)
+
+        firstVertexIndex = self._firstVertexIndex[primitiveType]
+        for vertexIndex in xrange(firstVertexIndex, firstVertexIndex+self._numVertices[primitiveType], 2):
+            if self._getSqDistanceToLine(mvp, mousePos, vertexIndex, vertexIndex+1) <= minMouseDistSq:
+                return True
+        return False
+
 class ModifierAxis:
     X = 0
     Y = 1
@@ -284,6 +323,31 @@ class Modeler(QGLWidget):
                 glUniform4f(self._uniform_color, 0.0, 0.0, 1.0, 1.0)
             self._primitives.draw(PrimitiveType.ARROW)
 
+    # Determine which modifier axis the given mouse position is overlapping with.
+    def _getMouseOnModifierAxis(self, mousePosX, mousePosY):
+        modifierMvp = self._getModifierMVP()
+
+        screenX = (mousePosX / self.width()) * 2.0 - 1.0
+        screenY = ((mousePosY / self.height()) * -2.0 + 1.0)
+
+        minDist = 10 / (0.5 * min(self.width(), self.height()))
+
+        if self._modifierMode == ModifierMode.TRANSLATE:
+            # X axis?
+            mvp = modifierMvp
+            if self._primitives.isMouseOn(PrimitiveType.ARROW, mvp, screenX, screenY, minDist*minDist):
+                return ModifierAxis.X
+            # Y axis?
+            mvp = cgmath.Mat44.rotateZ(math.radians(90)) * mvp
+            if self._primitives.isMouseOn(PrimitiveType.ARROW, mvp, screenX, screenY, minDist * minDist):
+                return ModifierAxis.Y
+            # Z axis?
+            mvp = cgmath.Mat44.rotateY(math.radians(-90)) * mvp
+            if self._primitives.isMouseOn(PrimitiveType.ARROW, mvp, screenX, screenY, minDist * minDist):
+                return ModifierAxis.Z
+
+        return ModifierAxis.NONE
+
     def __onResize(self):
         self.repaint()
 
@@ -301,22 +365,30 @@ class Modeler(QGLWidget):
             return
 
         modifiers = QApplication.keyboardModifiers()
-        if modifiers != Qt.AltModifier:
-            return
 
-        self._adjustingCamera = True
-        self._adjustCameraStartMousePos = mathutil.Vec2(mouseEvent.posF().x(), mouseEvent.posF().y())
-        self._adjustCameraStartCamera = self._cameraTransform
+        # Pan/Rotate/Zoom?
+        if modifiers == Qt.AltModifier:
+            self._adjustingCamera = True
+            self._adjustCameraStartMousePos = mathutil.Vec2(mouseEvent.posF().x(), mouseEvent.posF().y())
+            self._adjustCameraStartCamera = self._cameraTransform
 
-        # Panning?
-        if mouseEvent.buttons() & Qt.MiddleButton:
-            self._adjustCameraMode = 0
-        # Rotating?
-        elif mouseEvent.buttons() & Qt.LeftButton:
-            self._adjustCameraMode = 1
-        # Zooming?
-        elif mouseEvent.buttons() & Qt.RightButton:
-            self._adjustCameraMode = 2
+            # Panning?
+            if mouseEvent.buttons() & Qt.MiddleButton:
+                self._adjustCameraMode = 0
+            # Rotating?
+            elif mouseEvent.buttons() & Qt.LeftButton:
+                self._adjustCameraMode = 1
+            # Zooming?
+            elif mouseEvent.buttons() & Qt.RightButton:
+                self._adjustCameraMode = 2
+
+        # Simple click?
+        else:
+            # Clicked on an axis?
+            if self._modifierMode != ModifierMode.SELECT:
+                self._modifierAxis = self._getMouseOnModifierAxis(mouseEvent.posF().x(), mouseEvent.posF().y())
+                self.repaint()
+
 
     def axisAngle(self, axis, angle):
         # https://www.euclideanspace.com/maths/geometry/rotations/conversions/angleToMatrix/
@@ -342,22 +414,11 @@ class Modeler(QGLWidget):
 
         return cgmath.Mat44(m00, m01, m02, 0, m10, m11, m12, 0, m20, m21, m22, 0, 0, 0, 0, 1)
 
-    def _isMouseOnModifier(self, x, y):
-        modifierMvp = self._getModifierMVP()
-        # todo: convert x,y to screen space and implement a check on the primitive
-        return False
-
     def mouseMoveEvent(self, mouseEvent):
         super(Modeler, self).mouseMoveEvent(mouseEvent)
 
-        # TEMP HACK:
-
-        if self._isMouseOnModifier(mouseEvent.posF().x(), mouseEvent.posF().y()):
-            self._modifierAxis = ModifierAxis.NONE
-        else:
-            self._modifierAxis = ModifierAxis.X
-
-        self.repaint()
+        #self._modifierAxis = self._getMouseOnModifierAxis(mouseEvent.posF().x(), mouseEvent.posF().y())
+        #self.repaint()
 
         if not self._adjustingCamera:
             return
@@ -401,18 +462,23 @@ class Modeler(QGLWidget):
     def mouseReleaseEvent(self, mouseEvent):
         super(Modeler, self).mouseReleaseEvent(mouseEvent)
 
-        if not self._adjustingCamera:
-            return
+        # Panning/Rotating/Zooming?
+        if self._adjustingCamera:
+            # Panning?
+            if self._adjustCameraMode == 0:
+                self._adjustingCamera = (mouseEvent.buttons() & Qt.MiddleButton)
+            # Rotating?
+            elif self._adjustCameraMode == 1:
+                self._adjustingCamera = (mouseEvent.buttons() & Qt.LeftButton)
+            # Zooming?
+            elif self._adjustCameraMode == 2:
+                self._adjustingCamera = (mouseEvent.buttons() & Qt.RightButton)
 
-        # Panning?
-        if self._adjustCameraMode == 0:
-            self._adjustingCamera = (mouseEvent.buttons() & Qt.MiddleButton)
-        # Rotating?
-        elif self._adjustCameraMode == 1:
-            self._adjustingCamera = (mouseEvent.buttons() & Qt.LeftButton)
-        # Zooming?
-        elif self._adjustCameraMode == 2:
-            self._adjustingCamera = (mouseEvent.buttons() & Qt.RightButton)
+        else:
+            if self._modifierMode != ModifierMode.SELECT:
+                self._modifierAxis = ModifierAxis.NONE
+                self.repaint()
+
 
     def keyPressEvent(self, event):
         super(Modeler, self).keyPressEvent(event)
