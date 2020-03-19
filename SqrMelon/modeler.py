@@ -70,7 +70,13 @@ class Primitives:
         glDrawArrays(GL_LINES, self._firstVertexIndex[primitiveType], self._numVertices[primitiveType])
         return
 
-class ModelerModifierMode:
+class ModifierAxis:
+    X = 0
+    Y = 1
+    Z = 2
+    NONE = 3
+
+class ModifierMode:
     SELECT = 0
     TRANSLATE = 1
 
@@ -100,7 +106,8 @@ class Modeler(QGLWidget):
         self._adjustingCamera = False
         self._adjustCameraMode = 0
 
-        self._modifierMode = ModelerModifierMode.SELECT
+        self._modifierMode = ModifierMode.SELECT
+        self._modifierAxis = ModifierAxis.NONE
 
         self.setFocusPolicy(Qt.StrongFocus)
 
@@ -108,9 +115,8 @@ class Modeler(QGLWidget):
         glClearColor(0.7, 0.7, 0.7, 1.0)
         glClear(GL_COLOR_BUFFER_BIT)
         glClearDepth(1.0)
-        glDepthFunc(GL_LESS)
+        glDepthFunc(GL_LEQUAL)
         glEnable(GL_DEPTH_TEST)
-        #glDisable(GL_DEPTH_TEST)
         glShadeModel(GL_SMOOTH)
         glDisable(GL_CULL_FACE)
 
@@ -232,30 +238,50 @@ class Modeler(QGLWidget):
                     glUniform4f(self._uniform_color, 0.0, 0.0, 0.0, 1.0)
                 self._primitives.draw(PrimitiveType.CUBE)
 
-                # Draw our modifier for this node?
-                if self._modifierMode != ModelerModifierMode.SELECT and node == self._currentModelNode:
-                    self._drawModifier(modelTransform)
+            # Draw our modifier for the current node?
+            if self._modifierMode != ModifierMode.SELECT and not self._currentModelNode is None:
+                self._drawModifier()
 
-    def _drawModifier(self, modelTransform):
+    def _getModifierMVP(self):
+        modelTransform = self._currentModelNode.getModelTransform()
+
+        modifierSize = 0.4
+
+        mv = cgmath.Mat44.translate(modelTransform[12], modelTransform[13], modelTransform[14]) * self._viewTransform
+        mvp = cgmath.Mat44.scale(modifierSize * mv[14], modifierSize * mv[14],
+                                 modifierSize * mv[14]) * mv * self._projection
+
+        return mvp
+
+    # Draw a modifier, such as a translation gizmo.
+    def _drawModifier(self):
         glLineWidth(1.5)
 
-        if self._modifierMode == ModelerModifierMode.TRANSLATE:
-            modifierSize = 0.4
+        if self._modifierMode == ModifierMode.TRANSLATE:
+            mvp = self._getModifierMVP()
+
             # X
-            mv = cgmath.Mat44.translate(modelTransform[12], modelTransform[13], modelTransform[14]) *  self._viewTransform
-            mvp = cgmath.Mat44.scale(modifierSize*mv[14], modifierSize*mv[14], modifierSize*mv[14]) * mv * self._projection
             glUniformMatrix4fv(self._uniform_mvp, 1, False, (ctypes.c_float * 16)(*mvp))
-            glUniform4f(self._uniform_color, 1.0, 0.0, 0.0, 1.0)
+            if self._modifierAxis == ModifierAxis.X:
+                glUniform4f(self._uniform_color, 1.0, 1.0, 0.0, 1.0)
+            else:
+                glUniform4f(self._uniform_color, 1.0, 0.0, 0.0, 1.0)
             self._primitives.draw(PrimitiveType.ARROW)
             # Y
             mvp = cgmath.Mat44.rotateZ(math.radians(90)) * mvp
             glUniformMatrix4fv(self._uniform_mvp, 1, False, (ctypes.c_float * 16)(*mvp))
-            glUniform4f(self._uniform_color, 0.0, 1.0, 0.0, 1.0)
+            if self._modifierAxis == ModifierAxis.Y:
+                glUniform4f(self._uniform_color, 1.0, 1.0, 0.0, 1.0)
+            else:
+                glUniform4f(self._uniform_color, 0.0, 1.0, 0.0, 1.0)
             self._primitives.draw(PrimitiveType.ARROW)
             # Z
             mvp = cgmath.Mat44.rotateY(math.radians(-90)) * mvp
             glUniformMatrix4fv(self._uniform_mvp, 1, False, (ctypes.c_float * 16)(*mvp))
-            glUniform4f(self._uniform_color, 0.0, 0.0, 1.0, 1.0)
+            if self._modifierAxis == ModifierAxis.Z:
+                glUniform4f(self._uniform_color, 1.0, 1.0, 0.0, 1.0)
+            else:
+                glUniform4f(self._uniform_color, 0.0, 0.0, 1.0, 1.0)
             self._primitives.draw(PrimitiveType.ARROW)
 
     def __onResize(self):
@@ -315,10 +341,23 @@ class Modeler(QGLWidget):
         m12 = tmp1 - tmp2
 
         return cgmath.Mat44(m00, m01, m02, 0, m10, m11, m12, 0, m20, m21, m22, 0, 0, 0, 0, 1)
-#        return cgmath.Mat44(m00, m10, m20, 0, m01, m11, m21, 0, m02, m12, m22, 0, 0, 0, 0, 1)
+
+    def _isMouseOnModifier(self, x, y):
+        modifierMvp = self._getModifierMVP()
+        # todo: convert x,y to screen space and implement a check on the primitive
+        return False
 
     def mouseMoveEvent(self, mouseEvent):
         super(Modeler, self).mouseMoveEvent(mouseEvent)
+
+        # TEMP HACK:
+
+        if self._isMouseOnModifier(mouseEvent.posF().x(), mouseEvent.posF().y()):
+            self._modifierAxis = ModifierAxis.NONE
+        else:
+            self._modifierAxis = ModifierAxis.X
+
+        self.repaint()
 
         if not self._adjustingCamera:
             return
@@ -378,10 +417,11 @@ class Modeler(QGLWidget):
     def keyPressEvent(self, event):
         super(Modeler, self).keyPressEvent(event)
         if event.key() == Qt.Key_Q or event.key() == Qt.Key_Escape:
-            self._modifierMode = ModelerModifierMode.SELECT
+            self._modifierMode = ModifierMode.SELECT
             self.repaint()
         elif event.key() == Qt.Key_W:
-            self._modifierMode = ModelerModifierMode.TRANSLATE
+            self._modifierMode = ModifierMode.TRANSLATE
+            self._modifierAxis = ModifierAxis.NONE
             self.repaint()
 
     def setModelNode(self, model, node):

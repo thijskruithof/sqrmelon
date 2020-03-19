@@ -17,7 +17,7 @@ from sceneview3d import SceneView
 from shots import ShotManager
 from timeslider import Timer, TimeSlider
 from models import Models
-from modeler import Modeler
+import modeler
 from modelsoutliner import ModelsOutliner
 from util import PROJ_EXT, SCENE_EXT, gSettings, currentProjectFilePath, currentProjectDirectory,setCurrentProjectFilePath, currentScenesDirectory
 import os
@@ -105,7 +105,7 @@ class App(QMainWindowState):
         self.__profiler = Profiler()
 
         self.__models = Models()
-        self.__modeler = Modeler()
+        self.__modeler = modeler.Modeler()
         self.__modelsOutliner = ModelsOutliner(self.__models)
         self.__modelsOutliner.selectedModelNodeChanged.connect(self.__modeler.setModelNode)
         self.__models.modelChanged.connect(self.__modeler.onModelChanged)
