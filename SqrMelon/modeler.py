@@ -7,6 +7,69 @@ import cgmath
 import mathutil
 import math
 
+class PrimitiveType:
+    GRID = 0
+    CUBE = 1
+    ARROW = 2
+
+class Primitives:
+    def __init__(self):
+        self._vertex_data = []
+        self._firstVertexIndex = [ 0, 0, 0 ]
+        self._numVertices = [ 0, 0, 0 ]
+
+        numGridLines = 20
+        gridSpacing = 0.25
+
+        for i in range(-numGridLines, numGridLines+1):
+            # line on X axis
+            self._vertex_data.extend([i*gridSpacing, 0, -numGridLines*gridSpacing])
+            self._vertex_data.extend([i*gridSpacing, 0, numGridLines*gridSpacing])
+            # line on Z axis
+            self._vertex_data.extend([-numGridLines * gridSpacing, 0, i * gridSpacing])
+            self._vertex_data.extend([numGridLines * gridSpacing, 0, i * gridSpacing])
+
+        self._firstVertexIndex[PrimitiveType.GRID] = 0
+        self._numVertices[PrimitiveType.GRID] = (numGridLines*2+1)*4
+
+        # Construct a unit cube [-1,-1,-1] .. [1,1,1]
+        for a in xrange(-1, 2, 2):
+            for b in xrange(-1, 2, 2):
+                self._vertex_data.extend([-1, a, b])
+                self._vertex_data.extend([1, a, b])
+                self._vertex_data.extend([a, -1, b])
+                self._vertex_data.extend([a, 1, b])
+                self._vertex_data.extend([a, b, -1])
+                self._vertex_data.extend([a, b, 1])
+
+        self._firstVertexIndex[PrimitiveType.CUBE] = self._firstVertexIndex[PrimitiveType.GRID] + self._numVertices[PrimitiveType.GRID]
+        self._numVertices[PrimitiveType.CUBE] = len(self._vertex_data)/3 - self._firstVertexIndex[PrimitiveType.CUBE]
+
+        # Construct an arrow (on 1,0,0 axis)
+        arrowTipLen = 0.05
+        arrowTipWidth = 0.03
+        self._vertex_data.extend([0, 0, 0])
+        self._vertex_data.extend([1, 0, 0])
+        self._vertex_data.extend([1-arrowTipLen, arrowTipWidth, arrowTipWidth])
+        self._vertex_data.extend([1, 0, 0])
+        self._vertex_data.extend([1-arrowTipLen, arrowTipWidth, -arrowTipWidth])
+        self._vertex_data.extend([1, 0, 0])
+        self._vertex_data.extend([1-arrowTipLen, -arrowTipWidth, arrowTipWidth])
+        self._vertex_data.extend([1, 0, 0])
+        self._vertex_data.extend([1-arrowTipLen, -arrowTipWidth, -arrowTipWidth])
+        self._vertex_data.extend([1, 0, 0])
+
+        self._firstVertexIndex[PrimitiveType.ARROW] = self._firstVertexIndex[PrimitiveType.CUBE] + self._numVertices[PrimitiveType.CUBE]
+        self._numVertices[PrimitiveType.ARROW] = len(self._vertex_data)/3 - self._firstVertexIndex[PrimitiveType.ARROW]
+
+    @property
+    def vertexData(self):
+        return self._vertex_data
+
+    def draw(self, primitiveType):
+        glDrawArrays(GL_LINES, self._firstVertexIndex[primitiveType], self._numVertices[primitiveType])
+        return
+
 class ModelerModifierMode:
     SELECT = 0
     TRANSLATE = 1
@@ -26,6 +89,7 @@ class Modeler(QGLWidget):
         super(Modeler, self).__init__()
         self.setLayout(vlayout())
 
+        self._primitives = Primitives()
         self._currentModel = None
         self._currentModelNode = None
 
@@ -57,50 +121,6 @@ class Modeler(QGLWidget):
         glBindVertexArray(vertex_array_id)
 
         # A grid in XZ plane
-        vertex_data = []
-        numGridLines = 20
-        gridSpacing = 0.25
-
-        for i in range(-numGridLines, numGridLines+1):
-            # line on X axis
-            vertex_data.extend([i*gridSpacing, 0, -numGridLines*gridSpacing])
-            vertex_data.extend([i*gridSpacing, 0, numGridLines*gridSpacing])
-            # line on Z axis
-            vertex_data.extend([-numGridLines*gridSpacing, 0, i * gridSpacing])
-            vertex_data.extend([numGridLines * gridSpacing, 0, i * gridSpacing])
-
-        self._firstVertexIndexGrid = 0
-        self._numGridVertices = (numGridLines*2+1)*4
-
-        # Construct a unit cube [-1,-1,-1] .. [1,1,1]
-        for a in xrange(-1, 2, 2):
-            for b in xrange(-1, 2, 2):
-                vertex_data.extend([-1, a, b])
-                vertex_data.extend([1, a, b])
-                vertex_data.extend([a, -1, b])
-                vertex_data.extend([a, 1, b])
-                vertex_data.extend([a, b, -1])
-                vertex_data.extend([a, b, 1])
-
-        self._firstVertexIndexCube = self._firstVertexIndexGrid + self._numGridVertices
-        self._numCubeVertices = len(vertex_data)/3 - self._firstVertexIndexCube
-
-        # Construct an arrow (on 1,0,0 axis)
-        arrowTipLen = 0.05
-        arrowTipWidth = 0.03
-        vertex_data.extend([0, 0, 0])
-        vertex_data.extend([1, 0, 0])
-        vertex_data.extend([1-arrowTipLen, arrowTipWidth, arrowTipWidth])
-        vertex_data.extend([1, 0, 0])
-        vertex_data.extend([1-arrowTipLen, arrowTipWidth, -arrowTipWidth])
-        vertex_data.extend([1, 0, 0])
-        vertex_data.extend([1-arrowTipLen, -arrowTipWidth, arrowTipWidth])
-        vertex_data.extend([1, 0, 0])
-        vertex_data.extend([1-arrowTipLen, -arrowTipWidth, -arrowTipWidth])
-        vertex_data.extend([1, 0, 0])
-
-        self._firstVertexIndexArrow = self._firstVertexIndexCube + self._numCubeVertices
-        self._numArrowVertices = len(vertex_data)/3 - self._firstVertexIndexArrow
 
         attr_id = 0  # No particular reason for 0,
         # but must match the layout location in the shader.
@@ -109,10 +129,10 @@ class Modeler(QGLWidget):
 
         glBindBuffer(GL_ARRAY_BUFFER, vertex_buffer)
 
-        array_type = (GLfloat * len(vertex_data))
+        array_type = (GLfloat * len(self._primitives.vertexData))
         glBufferData(GL_ARRAY_BUFFER,
-                        len(vertex_data) * ctypes.sizeof(ctypes.c_float),
-                        array_type(*vertex_data),
+                        len(self._primitives.vertexData) * ctypes.sizeof(ctypes.c_float),
+                        array_type(*self._primitives.vertexData),
                         GL_STATIC_DRAW)
 
         glVertexAttribPointer(
@@ -189,7 +209,7 @@ class Modeler(QGLWidget):
         glUniformMatrix4fv(self._uniform_mvp, 1, False, (ctypes.c_float * 16)(*mvp))
         glUniform4f(self._uniform_color, 0.5, 0.5, 0.5, 1.0)
         glLineWidth(1)
-        glDrawArrays(GL_LINES, self._firstVertexIndexGrid, self._numGridVertices)
+        self._primitives.draw(PrimitiveType.GRID)
 
         # Draw nodes
         if not self._currentModel is None:
@@ -210,7 +230,7 @@ class Modeler(QGLWidget):
                     glUniform4f(self._uniform_color, 1.0, 1.0, 0.0, 1.0)
                 else:
                     glUniform4f(self._uniform_color, 0.0, 0.0, 0.0, 1.0)
-                glDrawArrays(GL_LINES, self._firstVertexIndexCube, self._numCubeVertices)
+                self._primitives.draw(PrimitiveType.CUBE)
 
                 # Draw our modifier for this node?
                 if self._modifierMode != ModelerModifierMode.SELECT and node == self._currentModelNode:
@@ -226,17 +246,17 @@ class Modeler(QGLWidget):
             mvp = cgmath.Mat44.scale(modifierSize*mv[14], modifierSize*mv[14], modifierSize*mv[14]) * mv * self._projection
             glUniformMatrix4fv(self._uniform_mvp, 1, False, (ctypes.c_float * 16)(*mvp))
             glUniform4f(self._uniform_color, 1.0, 0.0, 0.0, 1.0)
-            glDrawArrays(GL_LINES, self._firstVertexIndexArrow, self._numArrowVertices)
+            self._primitives.draw(PrimitiveType.ARROW)
             # Y
             mvp = cgmath.Mat44.rotateZ(math.radians(90)) * mvp
             glUniformMatrix4fv(self._uniform_mvp, 1, False, (ctypes.c_float * 16)(*mvp))
             glUniform4f(self._uniform_color, 0.0, 1.0, 0.0, 1.0)
-            glDrawArrays(GL_LINES, self._firstVertexIndexArrow, self._numArrowVertices)
+            self._primitives.draw(PrimitiveType.ARROW)
             # Z
             mvp = cgmath.Mat44.rotateY(math.radians(-90)) * mvp
             glUniformMatrix4fv(self._uniform_mvp, 1, False, (ctypes.c_float * 16)(*mvp))
             glUniform4f(self._uniform_color, 0.0, 0.0, 1.0, 1.0)
-            glDrawArrays(GL_LINES, self._firstVertexIndexArrow, self._numArrowVertices)
+            self._primitives.draw(PrimitiveType.ARROW)
 
     def __onResize(self):
         self.repaint()
