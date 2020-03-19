@@ -177,6 +177,11 @@ class VectorBase(object):
         data = self._fetchData()
         return data[slice]
 
+    def __repr__(self):
+        data = self._fetchData()
+        return 'Vec({:10.4f} {:10.4f} {:10.4f} {:10.4f})'.format(*data)
+
+
     # def __del__(self):
     #    _dllHandle.Vector_Delete(self._ptr)
 
