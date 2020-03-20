@@ -109,6 +109,7 @@ class App(QMainWindowState):
         self.__modelsOutliner = ModelsOutliner(self.__models)
         self.__modelsOutliner.selectedModelNodeChanged.connect(self.__modeler.setModelNode)
         self.__models.modelChanged.connect(self.__modeler.onModelChanged)
+        self.__modeler.selectedModelNodeChanged.connect(self.__modelsOutliner.selectModelNode)
 
         self.timeSlider = TimeSlider(self._timer, self.__shotsManager)
         self.__shotsManager.shotChanged.connect(self.timeSlider.repaint)

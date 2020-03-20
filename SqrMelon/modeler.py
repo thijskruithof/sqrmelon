@@ -118,6 +118,7 @@ class ModifierMode:
     TRANSLATE = 1
 
 class Modeler(QGLWidget):
+    selectedModelNodeChanged = pyqtSignal(object, object)
 
     """
     Modeler window/viewport
@@ -428,8 +429,8 @@ class Modeler(QGLWidget):
             # Did we otherwise click on a node of the model?
             if not self._currentModel is None and not clickHandled:
                 clickHandled = True
-                self._currentModelNode = self._getMouseOnModelNode(mouseEvent.posF().x(), mouseEvent.posF().y())
-                self.repaint()
+                newSelectedNode = self._getMouseOnModelNode(mouseEvent.posF().x(), mouseEvent.posF().y())
+                self.selectedModelNodeChanged.emit(self._currentModel, newSelectedNode)
 
 
     # Create a rotation matrix from an axis and an angle

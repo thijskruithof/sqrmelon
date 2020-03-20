@@ -186,3 +186,14 @@ class ModelsOutliner(QWidget):
     def _onAddModel(self):
         self._models.addModel()
 
+    # Force select a specific Model and ModelNode.
+    # Used by the modeler when clicking a model node
+    def selectModelNode(self, model, modelNode):
+        modelItem = self._model.index(self._models.models.index(model), 0)
+        if modelNode is None:
+            self._tree.setCurrentIndex(modelItem)
+        else:
+            modelNodeItem = self._model.index(model.nodes.index(modelNode), 0, modelItem)
+            self._tree.setCurrentIndex(modelNodeItem)
+
+
