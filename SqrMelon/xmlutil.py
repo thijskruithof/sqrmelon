@@ -2,7 +2,7 @@ import re
 from xml.etree import cElementTree
 from fileutil import FilePath
 import xml.dom.minidom
-
+import cgmath
 
 def xmlFixSlashesRecursively(xElement):
     # replace backslashes in all text and values
@@ -42,3 +42,11 @@ def toPrettyXml(root):
     text = xml.dom.minidom.parseString(text).toprettyxml()
     text = text.replace('\r', '\n')
     return '\n'.join(line for line in text.split('\n') if line and line.strip())
+
+
+def vec3ToXmlAttrib(vec3):
+    return "%f,%f,%f" % (vec3[0], vec3[1], vec3[2])
+
+def xmlAttribToVec3(attrib):
+    vals = map(float, attrib.split(','))
+    return cgmath.Vec3(vals[0], vals[1], vals[2])

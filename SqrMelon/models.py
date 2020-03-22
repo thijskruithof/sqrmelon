@@ -1,6 +1,9 @@
 import cgmath
 from qtutil import *
-
+from util import toPrettyXml, currentProjectFilePath
+from xml.etree import cElementTree
+from projutil import parseXMLWithIncludes
+from xmlutil import vec3ToXmlAttrib, xmlAttribToVec3
 
 class ModelNodeBase(object):
     """
@@ -10,7 +13,7 @@ class ModelNodeBase(object):
         self._name = self.__class__.__name__[9:]
         self._translation = cgmath.Vec3(0,0,0)
         self._rotation = cgmath.Vec3(0,0,0)
-        self._scale = 1
+        self._scale = 1.0
         self._model = None
 
     @property
@@ -56,6 +59,22 @@ class ModelNodeBase(object):
                cgmath.Mat44.rotateX(self._rotation[0]) * \
                cgmath.Mat44.translate(self._translation[0], self._translation[1], self._translation[2])
 
+    def saveToElementTree(self, parentElement):
+        xNode = cElementTree.SubElement(parentElement, self.__class__.__name__,
+            {'name': self.name,
+             'translation' : vec3ToXmlAttrib(self._translation),
+             'rotation': vec3ToXmlAttrib(self._rotation),
+             'scale': str(self._scale),
+             })
+        return xNode
+
+    def loadFromElementTree(self, element):
+        self._name = element.attrib['name']
+        self._translation = xmlAttribToVec3(element.attrib['translation'])
+        self._rotation = xmlAttribToVec3(element.attrib['rotation'])
+        self._scale = float(element.attrib['scale'])
+
+
 class ModelNodeBox(ModelNodeBase):
     """
     Box node of a model
@@ -74,6 +93,15 @@ class ModelNodeBox(ModelNodeBase):
     @size.setter
     def size(self, s):
         self._size = cgmath.Vec3(s)
+
+    def saveToElementTree(self, parentElement):
+        xNode = super(ModelNodeBox, self).saveToElementTree(parentElement)
+        xNode.set('size', "%f,%f,%f" % (self._size[0], self._size[1], self._size[2]))
+        return xNode
+
+    def loadFromElementTree(self, element):
+        super(ModelNodeBox, self).loadFromElementTree(element)
+        self._size = xmlAttribToVec3(element.attrib['size'])
 
 class Model(object):
     """
@@ -119,6 +147,21 @@ class Model(object):
         self._models.postNodeRemovedFromModel.emit(self, node)
         self._models.modelChanged.emit(self)
 
+    def saveToElementTree(self, parentElement):
+        xModel = cElementTree.SubElement(parentElement, 'Model', {'name': self.name})
+        for node in self.nodes:
+            node.saveToElementTree(xModel)
+        return xModel
+
+    def loadFromElementTree(self, element):
+        self._name = element.attrib['name']
+        for xNode in element:
+            nodeClass = globals()[xNode.tag]
+            node = nodeClass()
+            node.model = self
+            self._nodes.append(node)
+            node.loadFromElementTree(xNode)
+
 
 class Models(QObject):
     """
@@ -162,3 +205,39 @@ class Models(QObject):
         self.preModelRemoved.emit(model)
         self._models.remove(model)
         self.postModelRemoved.emit(model)
+
+    def saveToProject(self):
+        project = currentProjectFilePath()
+        root = parseXMLWithIncludes(project)
+
+        xModels = cElementTree.SubElement(root, 'Models')
+        for model in self._models:
+            model.saveToElementTree(xModels)
+
+        with project.edit() as fh:
+            fh.write(toPrettyXml(root))
+
+    def loadFromProject(self):
+        # Clear all
+        while len(self._models) > 0:
+            self.removeModel(self._models[0])
+
+        project = currentProjectFilePath()
+        if project and project.exists():
+            text = project.content()
+
+            try:
+                root = cElementTree.fromstring(text)
+            except:
+                root = None
+
+            if root is not None:
+                xModels = root.find('Models')
+                if not xModels is None:
+                    for xModel in xModels.findall('Model'):
+                        model = Model()
+                        model.models = self
+                        model.loadFromElementTree(xModel)
+                        self._models.append(model)
+
+

@@ -196,4 +196,5 @@ class ModelsOutliner(QWidget):
             modelNodeItem = self._model.index(model.nodes.index(modelNode), 0, modelItem)
             self._tree.setCurrentIndex(modelNodeItem)
 
-
+    def reset(self):
+        self._tree.reset()

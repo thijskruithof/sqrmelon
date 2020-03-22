@@ -400,6 +400,7 @@ class App(QMainWindowState):
         self.__sceneView.saveCameraData()
         self.__shotsManager.saveAllShots()
         self._timer.saveState()
+        self.__models.saveToProject()
         QMessageBox.information(self, 'Save succesful!', 'Animation, shot & timing changes have been saved.')
 
     def closeEvent(self, event):
@@ -427,6 +428,8 @@ class App(QMainWindowState):
         self.__sceneList.projectOpened()
         self.__shotsManager.projectOpened()
         self._timer.projectOpened()
+        self.__models.loadFromProject()
+        self.__modelsOutliner.reset()
 
     def __initializeProject(self):
         project = currentProjectFilePath()
