@@ -139,11 +139,15 @@ class ModelsOutliner(QWidget):
         self._tree.customContextMenuRequested.connect(self._onContextMenu)
 
         self._contextMenuModel = QMenu()
+        self._contextMenuModel.addAction(icons.get('rename-48'), 'Rename').triggered.connect(self._onRenameModelOrNode)
+        self._contextMenuModel.addSeparator()
         self._contextMenuModel.addAction(icons.get('box-48'), 'Add box').triggered.connect(self._onAddBox)
-        self._contextMenuModel.addAction(icons.get('Delete Node-48'), 'Delete').triggered.connect(self._onDeleteModelOrNode)
+        self._contextMenuModel.addAction(icons.get('delete-48'), 'Delete').triggered.connect(self._onDeleteModelOrNode)
 
         self._contextMenuModelNode = QMenu()
-        self._contextMenuModelNode.addAction(icons.get('Delete Node-48'), 'Delete').triggered.connect(self._onDeleteModelOrNode)
+        self._contextMenuModelNode.addAction(icons.get('rename-48'), 'Rename').triggered.connect(self._onRenameModelOrNode)
+        self._contextMenuModelNode.addSeparator()
+        self._contextMenuModelNode.addAction(icons.get('delete-48'), 'Delete').triggered.connect(self._onDeleteModelOrNode)
 
     def _getSelectedModelAndNode(self):
         # Find out which model or modelnode is selected
@@ -182,6 +186,14 @@ class ModelsOutliner(QWidget):
                 data.model.removeNode(data)
             if isinstance(data, Model):
                 self._models.removeModel(data)
+
+    def _onRenameModelOrNode(self):
+        index = self._tree.currentIndex()
+        if index.isValid():
+            data = index.internalPointer()
+            text, ok = QInputDialog.getText(self, 'Rename', 'Name', QLineEdit.Normal, data.name)
+            if ok:
+                data.name = str(text)
 
     def _onAddModel(self):
         self._models.addModel()

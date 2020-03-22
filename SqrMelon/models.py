@@ -20,6 +20,10 @@ class ModelNodeBase(object):
     def name(self):
         return self._name
 
+    @name.setter
+    def name(self, value):
+        self._name = value
+
     @property
     def model(self):
         return self._model
