@@ -6,6 +6,10 @@ from OpenGL.GLU import *
 import cgmath
 import mathutil
 import math
+from util import toPrettyXml, currentProjectFilePath
+from xml.etree import cElementTree
+from projutil import parseXMLWithIncludes
+from xmlutil import vec3ToXmlAttrib, xmlAttribToVec3
 
 class PrimitiveType:
     GRID = 0    # Grid in XZ plane
@@ -148,7 +152,7 @@ class Modeler(QGLWidget):
     """
     Modeler window/viewport
     """
-    def __init__(self):
+    def __init__(self, models):
 
         # We found that not setting a version in Ubunto didn't work
         glFormat = QGLFormat()
@@ -162,6 +166,8 @@ class Modeler(QGLWidget):
         self._updateMinMouseClickDist()
 
         self._primitives = Primitives()
+
+        self._models = models
         self._currentModel = None
         self._currentModelNode = None
 
@@ -675,3 +681,43 @@ class Modeler(QGLWidget):
     def onModelChanged(self, model):
         if model == self._currentModel:
             self.repaint()
+
+    def saveState(self):
+        # save user camera position per scene
+        userFile = currentProjectFilePath().ensureExt('user')
+        if userFile.exists():
+            xUser = parseXMLWithIncludes(userFile)
+        else:
+            xUser = cElementTree.Element('user')
+
+        xMod = xUser.find('Modeler')
+        if xMod is None:
+            xMod = cElementTree.SubElement(xUser, 'Modeler')
+
+        if not self._currentModel is None:
+            xMod.set('CurrentModel', str(self._models.models.index(self._currentModel)))
+
+        xMod.set('CameraTransform', ','.join(map(str, self._cameraTransform[:])))
+
+        with userFile.edit() as fh:
+            fh.write(toPrettyXml(xUser))
+
+    def loadState(self):
+        # save user camera position per scene
+        userFile = currentProjectFilePath().ensureExt('user')
+        if not userFile.exists():
+            return
+
+        xUser = parseXMLWithIncludes(userFile)
+        if xUser is None:
+            return
+
+        xMod = xUser.find('Modeler')
+        if xMod is None:
+            return
+
+        currentModelIndex = int(xMod.attrib['CurrentModel'])
+        self.selectedModelNodeChanged.emit(self._models.models[currentModelIndex], None)
+
+        ct = map(float, xMod.attrib['CameraTransform'].split(','))
+        self._cameraTransform = cgmath.Mat44(ct[0],ct[1],ct[2],ct[3],ct[4],ct[5],ct[6],ct[7],ct[8],ct[9],ct[10],ct[11],ct[12],ct[13],ct[14],ct[15])

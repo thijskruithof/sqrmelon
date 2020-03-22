@@ -105,7 +105,7 @@ class App(QMainWindowState):
         self.__profiler = Profiler()
 
         self.__models = Models()
-        self.__modeler = modeler.Modeler()
+        self.__modeler = modeler.Modeler(self.__models)
         self.__modelsOutliner = ModelsOutliner(self.__models)
         self.__modelsOutliner.selectedModelNodeChanged.connect(self.__modeler.setModelNode)
         self.__models.modelChanged.connect(self.__modeler.onModelChanged)
@@ -401,6 +401,7 @@ class App(QMainWindowState):
         self.__shotsManager.saveAllShots()
         self._timer.saveState()
         self.__models.saveToProject()
+        self.__modeler.saveState()
         QMessageBox.information(self, 'Save succesful!', 'Animation, shot & timing changes have been saved.')
 
     def closeEvent(self, event):
@@ -430,6 +431,7 @@ class App(QMainWindowState):
         self._timer.projectOpened()
         self.__models.loadFromProject()
         self.__modelsOutliner.reset()
+        self.__modeler.loadState()
 
     def __initializeProject(self):
         project = currentProjectFilePath()
