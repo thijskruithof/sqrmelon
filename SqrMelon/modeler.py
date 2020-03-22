@@ -381,7 +381,7 @@ class Modeler(QGLWidget):
         self.repaint()
 
     def resizeGL(self, w, h):
-        self._projection = cgmath.Mat44.scale(1, 1, -1) * cgmath.Mat44.perspective(math.radians(90), w / h, 0.1, 100.0)
+        self._projection = cgmath.Mat44.scale(1, 1, -1) * cgmath.Mat44.perspective(math.radians(30), w / float(h), 0.1, 100.0)
 
         glViewport(0, 0, w, h)
 
