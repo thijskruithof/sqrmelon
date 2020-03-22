@@ -11,12 +11,13 @@ class PrimitiveType:
     GRID = 0
     CUBE = 1
     ARROW = 2
+    LINE = 3
 
 class Primitives:
     def __init__(self):
         self._vertex_data = []
-        self._firstVertexIndex = [ 0, 0, 0 ]
-        self._numVertices = [ 0, 0, 0 ]
+        self._firstVertexIndex = [ 0, 0, 0, 0 ]
+        self._numVertices = [ 0, 0, 0, 0 ]
 
         numGridLines = 20
         gridSpacing = 0.25
@@ -61,6 +62,13 @@ class Primitives:
 
         self._firstVertexIndex[PrimitiveType.ARROW] = self._firstVertexIndex[PrimitiveType.CUBE] + self._numVertices[PrimitiveType.CUBE]
         self._numVertices[PrimitiveType.ARROW] = len(self._vertex_data)/3 - self._firstVertexIndex[PrimitiveType.ARROW]
+
+       # Construct a single line (on 1,0,0 axis)
+        self._vertex_data.extend([0, 0, 0])
+        self._vertex_data.extend([1, 0, 0])
+
+        self._firstVertexIndex[PrimitiveType.LINE] = self._firstVertexIndex[PrimitiveType.ARROW] + self._numVertices[PrimitiveType.ARROW]
+        self._numVertices[PrimitiveType.LINE] = len(self._vertex_data)/3 - self._firstVertexIndex[PrimitiveType.LINE]
 
     @property
     def vertexData(self):
@@ -116,6 +124,7 @@ class ModifierAxis:
 class ModifierMode:
     SELECT = 0
     TRANSLATE = 1
+    SCALE_NONUNIFORM = 3
 
 class Modeler(QGLWidget):
     selectedModelNodeChanged = pyqtSignal(object, object)
@@ -151,6 +160,8 @@ class Modeler(QGLWidget):
         self._modifierAxis = ModifierAxis.NONE
 
         self.setFocusPolicy(Qt.StrongFocus)
+
+        self.installEventFilter(self)
 
     def _updateMinMouseClickDist(self):
         minDist = 10 / (0.5 * min(self.width(), self.height()))
@@ -305,8 +316,10 @@ class Modeler(QGLWidget):
     def _drawModifier(self):
         glLineWidth(1.5)
 
-        if self._modifierMode == ModifierMode.TRANSLATE:
+        if self._modifierMode == ModifierMode.TRANSLATE or self._modifierMode == ModifierMode.SCALE_NONUNIFORM:
             mvp = self._getModifierMVP()
+
+            primitiveType = PrimitiveType.ARROW if self._modifierMode == ModifierMode.TRANSLATE else PrimitiveType.LINE
 
             # X
             glUniformMatrix4fv(self._uniform_mvp, 1, False, (ctypes.c_float * 16)(*mvp))
@@ -314,7 +327,7 @@ class Modeler(QGLWidget):
                 glUniform4f(self._uniform_color, 1.0, 1.0, 0.0, 1.0)
             else:
                 glUniform4f(self._uniform_color, 1.0, 0.0, 0.0, 1.0)
-            self._primitives.draw(PrimitiveType.ARROW)
+            self._primitives.draw(primitiveType)
             # Y
             mvp = cgmath.Mat44.rotateZ(math.radians(90)) * mvp
             glUniformMatrix4fv(self._uniform_mvp, 1, False, (ctypes.c_float * 16)(*mvp))
@@ -322,7 +335,7 @@ class Modeler(QGLWidget):
                 glUniform4f(self._uniform_color, 1.0, 1.0, 0.0, 1.0)
             else:
                 glUniform4f(self._uniform_color, 0.0, 1.0, 0.0, 1.0)
-            self._primitives.draw(PrimitiveType.ARROW)
+            self._primitives.draw(primitiveType)
             # Z
             mvp = cgmath.Mat44.rotateY(math.radians(-90)) * mvp
             glUniformMatrix4fv(self._uniform_mvp, 1, False, (ctypes.c_float * 16)(*mvp))
@@ -330,7 +343,8 @@ class Modeler(QGLWidget):
                 glUniform4f(self._uniform_color, 1.0, 1.0, 0.0, 1.0)
             else:
                 glUniform4f(self._uniform_color, 0.0, 0.0, 1.0, 1.0)
-            self._primitives.draw(PrimitiveType.ARROW)
+            self._primitives.draw(primitiveType)
+
 
     def _convertMousePosToScreenPos(self, mousePosX, mousePosY):
         screenX = (mousePosX / self.width()) * 2.0 - 1.0
@@ -342,18 +356,20 @@ class Modeler(QGLWidget):
         screenPos = self._convertMousePosToScreenPos(mousePosX, mousePosY)
         modifierMvp = self._getModifierMVP()
 
-        if self._modifierMode == ModifierMode.TRANSLATE:
+        if self._modifierMode == ModifierMode.TRANSLATE or self._modifierMode == ModifierMode.SCALE_NONUNIFORM:
+            primitiveType = PrimitiveType.ARROW if self._modifierMode == ModifierMode.TRANSLATE else PrimitiveType.LINE
+
             # X axis?
             mvp = modifierMvp
-            if self._primitives.isMouseOn(PrimitiveType.ARROW, mvp, screenPos, self._minMouseClickDistSq):
+            if self._primitives.isMouseOn(primitiveType, mvp, screenPos, self._minMouseClickDistSq):
                 return ModifierAxis.X
             # Y axis?
             mvp = cgmath.Mat44.rotateZ(math.radians(90)) * mvp
-            if self._primitives.isMouseOn(PrimitiveType.ARROW, mvp, screenPos, self._minMouseClickDistSq):
+            if self._primitives.isMouseOn(primitiveType, mvp, screenPos, self._minMouseClickDistSq):
                 return ModifierAxis.Y
             # Z axis?
             mvp = cgmath.Mat44.rotateY(math.radians(-90)) * mvp
-            if self._primitives.isMouseOn(PrimitiveType.ARROW, mvp, screenPos, self._minMouseClickDistSq):
+            if self._primitives.isMouseOn(primitiveType, mvp, screenPos, self._minMouseClickDistSq):
                 return ModifierAxis.Z
 
         return ModifierAxis.NONE
@@ -424,6 +440,7 @@ class Modeler(QGLWidget):
                     self._modifierAxis = axis
                     self._modifyStartMouseScreenPos = self._convertMousePosToScreenPos(mouseEvent.posF().x(), mouseEvent.posF().y())
                     self._modifyStartModelTranslation = self._currentModelNode.translation
+                    self._modifyStartModelSize = self._currentModelNode.size
                     self.repaint()
 
             # Did we otherwise click on a node of the model?
@@ -509,7 +526,7 @@ class Modeler(QGLWidget):
 
         # Dragging?
         else:
-            # Dragging a modifier axis?
+            # Dragging a translation modifier axis?
             if self._modifierMode == ModifierMode.TRANSLATE and self._modifierAxis != ModifierAxis.NONE:
                 deltaMouse = self._convertMousePosToScreenPos(mouseEvent.posF().x(), mouseEvent.posF().y()) - self._modifyStartMouseScreenPos
                 if self._modifierAxis == ModifierAxis.X:
@@ -523,6 +540,21 @@ class Modeler(QGLWidget):
                 delta = screenDir[0]*deltaMouse[0] + screenDir[1]*deltaMouse[1]
 
                 self._currentModelNode.translation = axisDir * delta + self._modifyStartModelTranslation
+
+            # Dragging a scale modifier axis?
+            elif self._modifierMode == ModifierMode.SCALE_NONUNIFORM and self._modifierAxis != ModifierAxis.NONE:
+                deltaMouse = self._convertMousePosToScreenPos(mouseEvent.posF().x(), mouseEvent.posF().y()) - self._modifyStartMouseScreenPos
+                if self._modifierAxis == ModifierAxis.X:
+                    axisDir = cgmath.Vec3(1,0,0)
+                elif self._modifierAxis == ModifierAxis.Y:
+                    axisDir = cgmath.Vec3(0,1,0)
+                else:
+                    axisDir = cgmath.Vec3(0,0,1)
+
+                screenDir = self._getModifierAxisScreenDir(axisDir)
+                delta = screenDir[0]*deltaMouse[0] + screenDir[1]*deltaMouse[1]
+
+                self._currentModelNode.size = axisDir * delta * 0.5 + self._modifyStartModelSize
 
         self.repaint()
 
@@ -547,14 +579,31 @@ class Modeler(QGLWidget):
                 self._modifierAxis = ModifierAxis.NONE
                 self.repaint()
 
+    def eventFilter(self, watched, event):
+        if event.type() == QEvent.ShortcutOverride:
+            if event.key() == Qt.Key_Q or \
+                event.key() == Qt.Key_W or \
+                event.key() == Qt.Key_R or \
+                event.key() == Qt.Key_Escape:
+                # Disable all shortcuts for these keys, as we really want to handle these ourselves.
+                # (We have some overrides for these at the app level)
+                self.keyPressEvent(event)
+                return True
+
+        return super(Modeler, self).eventFilter(watched, event)
 
     def keyPressEvent(self, event):
         super(Modeler, self).keyPressEvent(event)
+
         if event.key() == Qt.Key_Q or event.key() == Qt.Key_Escape:
             self._modifierMode = ModifierMode.SELECT
             self.repaint()
         elif event.key() == Qt.Key_W:
             self._modifierMode = ModifierMode.TRANSLATE
+            self._modifierAxis = ModifierAxis.NONE
+            self.repaint()
+        elif event.key() == Qt.Key_R:
+            self._modifierMode = ModifierMode.SCALE_NONUNIFORM
             self._modifierAxis = ModifierAxis.NONE
             self.repaint()
 
