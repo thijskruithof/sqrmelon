@@ -8,16 +8,17 @@ import mathutil
 import math
 
 class PrimitiveType:
-    GRID = 0
-    CUBE = 1
-    ARROW = 2
-    LINE = 3
+    GRID = 0    # Grid in XZ plane
+    CUBE = 1    # Unit cube (-1..1)
+    ARROW = 2   # Arrow (on X axis), length 1
+    LINE = 3    # Line (on X axis), length 1
+    CIRCLE = 4  # Circle in YZ plane, radius 1
 
 class Primitives:
     def __init__(self):
         self._vertex_data = []
-        self._firstVertexIndex = [ 0, 0, 0, 0 ]
-        self._numVertices = [ 0, 0, 0, 0 ]
+        self._firstVertexIndex = [ 0, 0, 0, 0, 0 ]
+        self._numVertices = [ 0, 0, 0, 0, 0 ]
 
         numGridLines = 20
         gridSpacing = 0.25
@@ -63,12 +64,26 @@ class Primitives:
         self._firstVertexIndex[PrimitiveType.ARROW] = self._firstVertexIndex[PrimitiveType.CUBE] + self._numVertices[PrimitiveType.CUBE]
         self._numVertices[PrimitiveType.ARROW] = len(self._vertex_data)/3 - self._firstVertexIndex[PrimitiveType.ARROW]
 
-       # Construct a single line (on 1,0,0 axis)
+        # Construct a single line (on 1,0,0 axis)
         self._vertex_data.extend([0, 0, 0])
         self._vertex_data.extend([1, 0, 0])
-
         self._firstVertexIndex[PrimitiveType.LINE] = self._firstVertexIndex[PrimitiveType.ARROW] + self._numVertices[PrimitiveType.ARROW]
         self._numVertices[PrimitiveType.LINE] = len(self._vertex_data)/3 - self._firstVertexIndex[PrimitiveType.LINE]
+
+        # Construct a circle in YZ plane
+        numCircleSegments = 64
+        prevCirclePos = []
+        for i in xrange(0, numCircleSegments+1):
+            phi = ((2.0 * math.pi) / numCircleSegments)*i
+            circlePos = [0, math.cos(phi), math.sin(phi)]
+            if i > 0:
+                self._vertex_data.extend(prevCirclePos)
+                self._vertex_data.extend(circlePos)
+            prevCirclePos = circlePos
+        self._firstVertexIndex[PrimitiveType.CIRCLE] = self._firstVertexIndex[PrimitiveType.LINE] + self._numVertices[PrimitiveType.LINE]
+        self._numVertices[PrimitiveType.CIRCLE] = len(self._vertex_data)/3 - self._firstVertexIndex[PrimitiveType.CIRCLE]
+
+
 
     @property
     def vertexData(self):
@@ -124,6 +139,7 @@ class ModifierAxis:
 class ModifierMode:
     SELECT = 0
     TRANSLATE = 1
+    ROTATE = 2
     SCALE_NONUNIFORM = 3
 
 class Modeler(QGLWidget):
@@ -303,10 +319,26 @@ class Modeler(QGLWidget):
 
     def _getModifierMVP(self):
         modelTransform = self._currentModelNode.getModelTransform()
+        modifierSize = 0.125 if self._modifierMode == ModifierMode.ROTATE else 0.25
 
-        modifierSize = 0.25
+        if self._modifierMode == ModifierMode.TRANSLATE:
+            # Translation is in world space, simply emit world space axes
+            nonScaledModelTransform = cgmath.Mat44.translate(modelTransform[12], modelTransform[13], modelTransform[14])
+        else:
+            # Orthonormalize modelTransform (remove scale)
+            modelRight = cgmath.Vec3(modelTransform[0], modelTransform[1], modelTransform[2])
+            modelUp = cgmath.Vec3(modelTransform[4], modelTransform[5], modelTransform[6])
+            modelForward = cgmath.Vec3(modelTransform[8], modelTransform[9], modelTransform[10])
+            modelRight.normalize()
+            modelUp.normalize()
+            modelForward.normalize()
 
-        mv = cgmath.Mat44.translate(modelTransform[12], modelTransform[13], modelTransform[14]) * self._viewTransform
+            nonScaledModelTransform = cgmath.Mat44(modelRight[0], modelRight[1], modelRight[2], 0,
+                                                   modelUp[0], modelUp[1], modelUp[2], 0,
+                                                   modelForward[0], modelForward[1], modelForward[2], 0,
+                                                   modelTransform[12], modelTransform[13], modelTransform[14], 1)
+
+        mv = nonScaledModelTransform * self._viewTransform
         mvp = cgmath.Mat44.scale(modifierSize * mv[14], modifierSize * mv[14],
                                  modifierSize * mv[14]) * mv * self._projection
 
@@ -316,48 +348,56 @@ class Modeler(QGLWidget):
     def _drawModifier(self):
         glLineWidth(1.5)
 
-        if self._modifierMode == ModifierMode.TRANSLATE or self._modifierMode == ModifierMode.SCALE_NONUNIFORM:
-            mvp = self._getModifierMVP()
+        if self._modifierMode == ModifierMode.SELECT:
+            return
 
-            primitiveType = PrimitiveType.ARROW if self._modifierMode == ModifierMode.TRANSLATE else PrimitiveType.LINE
+        mvp = self._getModifierMVP()
+        primitiveType = self._getModifierAxisPrimitiveType()
 
-            # X
-            glUniformMatrix4fv(self._uniform_mvp, 1, False, (ctypes.c_float * 16)(*mvp))
-            if self._modifierAxis == ModifierAxis.X:
-                glUniform4f(self._uniform_color, 1.0, 1.0, 0.0, 1.0)
-            else:
-                glUniform4f(self._uniform_color, 1.0, 0.0, 0.0, 1.0)
-            self._primitives.draw(primitiveType)
-            # Y
-            mvp = cgmath.Mat44.rotateZ(math.radians(90)) * mvp
-            glUniformMatrix4fv(self._uniform_mvp, 1, False, (ctypes.c_float * 16)(*mvp))
-            if self._modifierAxis == ModifierAxis.Y:
-                glUniform4f(self._uniform_color, 1.0, 1.0, 0.0, 1.0)
-            else:
-                glUniform4f(self._uniform_color, 0.0, 1.0, 0.0, 1.0)
-            self._primitives.draw(primitiveType)
-            # Z
-            mvp = cgmath.Mat44.rotateY(math.radians(-90)) * mvp
-            glUniformMatrix4fv(self._uniform_mvp, 1, False, (ctypes.c_float * 16)(*mvp))
-            if self._modifierAxis == ModifierAxis.Z:
-                glUniform4f(self._uniform_color, 1.0, 1.0, 0.0, 1.0)
-            else:
-                glUniform4f(self._uniform_color, 0.0, 0.0, 1.0, 1.0)
-            self._primitives.draw(primitiveType)
-
+        # X
+        glUniformMatrix4fv(self._uniform_mvp, 1, False, (ctypes.c_float * 16)(*mvp))
+        if self._modifierAxis == ModifierAxis.X:
+            glUniform4f(self._uniform_color, 1.0, 1.0, 0.0, 1.0)
+        else:
+            glUniform4f(self._uniform_color, 1.0, 0.0, 0.0, 1.0)
+        self._primitives.draw(primitiveType)
+        # Y
+        mvp = cgmath.Mat44.rotateZ(math.radians(90)) * mvp
+        glUniformMatrix4fv(self._uniform_mvp, 1, False, (ctypes.c_float * 16)(*mvp))
+        if self._modifierAxis == ModifierAxis.Y:
+            glUniform4f(self._uniform_color, 1.0, 1.0, 0.0, 1.0)
+        else:
+            glUniform4f(self._uniform_color, 0.0, 1.0, 0.0, 1.0)
+        self._primitives.draw(primitiveType)
+        # Z
+        mvp = cgmath.Mat44.rotateY(math.radians(-90)) * mvp
+        glUniformMatrix4fv(self._uniform_mvp, 1, False, (ctypes.c_float * 16)(*mvp))
+        if self._modifierAxis == ModifierAxis.Z:
+            glUniform4f(self._uniform_color, 1.0, 1.0, 0.0, 1.0)
+        else:
+            glUniform4f(self._uniform_color, 0.0, 0.0, 1.0, 1.0)
+        self._primitives.draw(primitiveType)
 
     def _convertMousePosToScreenPos(self, mousePosX, mousePosY):
         screenX = (mousePosX / self.width()) * 2.0 - 1.0
         screenY = ((mousePosY / self.height()) * -2.0 + 1.0)
         return cgmath.Vec4(screenX, screenY, 0, 0)
 
+    def _getModifierAxisPrimitiveType(self):
+        if self._modifierMode == ModifierMode.TRANSLATE:
+            return PrimitiveType.ARROW
+        elif self._modifierMode == ModifierMode.ROTATE:
+            return PrimitiveType.CIRCLE
+        else:
+            return PrimitiveType.LINE
+
     # Determine which modifier axis the given mouse position is overlapping with.
     def _getMouseOnModifierAxis(self, mousePosX, mousePosY):
         screenPos = self._convertMousePosToScreenPos(mousePosX, mousePosY)
         modifierMvp = self._getModifierMVP()
 
-        if self._modifierMode == ModifierMode.TRANSLATE or self._modifierMode == ModifierMode.SCALE_NONUNIFORM:
-            primitiveType = PrimitiveType.ARROW if self._modifierMode == ModifierMode.TRANSLATE else PrimitiveType.LINE
+        if self._modifierMode != ModifierMode.SELECT:
+            primitiveType = self._getModifierAxisPrimitiveType()
 
             # X axis?
             mvp = modifierMvp
@@ -440,6 +480,7 @@ class Modeler(QGLWidget):
                     self._modifierAxis = axis
                     self._modifyStartMouseScreenPos = self._convertMousePosToScreenPos(mouseEvent.posF().x(), mouseEvent.posF().y())
                     self._modifyStartModelTranslation = self._currentModelNode.translation
+                    self._modifyStartModelRotation = self._currentModelNode.rotation
                     self._modifyStartModelSize = self._currentModelNode.size
                     self.repaint()
 
@@ -541,6 +582,20 @@ class Modeler(QGLWidget):
 
                 self._currentModelNode.translation = axisDir * delta + self._modifyStartModelTranslation
 
+            # Dragging a rotation modifier axis?
+            if self._modifierMode == ModifierMode.ROTATE and self._modifierAxis != ModifierAxis.NONE:
+                deltaMouse = self._convertMousePosToScreenPos(mouseEvent.posF().x(), mouseEvent.posF().y()) - self._modifyStartMouseScreenPos
+                amount = deltaMouse[0]
+
+                if self._modifierAxis == ModifierAxis.X:
+                    axisDir = cgmath.Vec3(1,0,0)
+                elif self._modifierAxis == ModifierAxis.Y:
+                    axisDir = cgmath.Vec3(0,1,0)
+                else:
+                    axisDir = cgmath.Vec3(0,0,1)
+
+                self._currentModelNode.rotation = axisDir * amount + self._modifyStartModelRotation
+
             # Dragging a scale modifier axis?
             elif self._modifierMode == ModifierMode.SCALE_NONUNIFORM and self._modifierAxis != ModifierAxis.NONE:
                 deltaMouse = self._convertMousePosToScreenPos(mouseEvent.posF().x(), mouseEvent.posF().y()) - self._modifyStartMouseScreenPos
@@ -583,6 +638,7 @@ class Modeler(QGLWidget):
         if event.type() == QEvent.ShortcutOverride:
             if event.key() == Qt.Key_Q or \
                 event.key() == Qt.Key_W or \
+                event.key() == Qt.Key_E or \
                 event.key() == Qt.Key_R or \
                 event.key() == Qt.Key_Escape:
                 # Disable all shortcuts for these keys, as we really want to handle these ourselves.
@@ -600,6 +656,10 @@ class Modeler(QGLWidget):
             self.repaint()
         elif event.key() == Qt.Key_W:
             self._modifierMode = ModifierMode.TRANSLATE
+            self._modifierAxis = ModifierAxis.NONE
+            self.repaint()
+        elif event.key() == Qt.Key_E:
+            self._modifierMode = ModifierMode.ROTATE
             self._modifierAxis = ModifierAxis.NONE
             self.repaint()
         elif event.key() == Qt.Key_R:

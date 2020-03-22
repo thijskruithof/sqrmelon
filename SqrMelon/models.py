@@ -9,7 +9,7 @@ class ModelNodeBase(object):
     def __init__(self):
         self._name = self.__class__.__name__[9:]
         self._translation = cgmath.Vec3(0,0,0)
-        #self._rotation = cgmath.Vec3(0,0,0)
+        self._rotation = cgmath.Vec3(0,0,0)
         self._scale = 1
         self._model = None
 
@@ -34,6 +34,14 @@ class ModelNodeBase(object):
         self._translation = cgmath.Vec3(tr)
 
     @property
+    def rotation(self):
+        return cgmath.Vec3(self._rotation)
+
+    @rotation.setter
+    def rotation(self, r):
+        self._rotation = cgmath.Vec3(r)
+
+    @property
     def scale(self):
         return self._scale
 
@@ -42,8 +50,11 @@ class ModelNodeBase(object):
         self._scale = v
 
     def getModelTransform(self):
-        # todo: add rotation as well
-        return cgmath.Mat44.scale(self._scale, self._scale, self._scale) * cgmath.Mat44.translate(self._translation[0], self._translation[1], self._translation[2])
+        return cgmath.Mat44.scale(self._scale, self._scale, self._scale) * \
+               cgmath.Mat44.rotateZ(self._rotation[2]) * \
+               cgmath.Mat44.rotateY(self._rotation[1]) * \
+               cgmath.Mat44.rotateX(self._rotation[0]) * \
+               cgmath.Mat44.translate(self._translation[0], self._translation[1], self._translation[2])
 
 class ModelNodeBox(ModelNodeBase):
     """
