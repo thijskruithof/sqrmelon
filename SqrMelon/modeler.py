@@ -291,7 +291,7 @@ class Modeler(QGLWidget):
                 if node == self._currentModelNode:
                     glUniform4f(self._uniform_color, 1.0, 1.0, 0.0, 1.0)
                 else:
-                    glUniform4f(self._uniform_color, 0.0, 0.0, 0.0, 1.0)
+                    glUniform4f(self._uniform_color, 0.0, 0.0, 0.5, 1.0)
                 self._primitives.draw(PrimitiveType.CUBE)
 
             # Draw our modifier for the current node?
@@ -304,7 +304,7 @@ class Modeler(QGLWidget):
     def _getModifierMVP(self):
         modelTransform = self._currentModelNode.getModelTransform()
 
-        modifierSize = 0.4
+        modifierSize = 0.25
 
         mv = cgmath.Mat44.translate(modelTransform[12], modelTransform[13], modelTransform[14]) * self._viewTransform
         mvp = cgmath.Mat44.scale(modifierSize * mv[14], modifierSize * mv[14],
