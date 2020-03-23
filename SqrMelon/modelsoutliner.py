@@ -76,6 +76,9 @@ class ModelsModel(QAbstractItemModel):
         if role == Qt.UserRole:
             return obj
 
+        if isinstance(obj, ModelNodeBox) and role == Qt.DecorationRole:
+            return icons.get('box-48')
+
         return None
 
     def index(self, row, column, parent = QModelIndex()):
