@@ -186,7 +186,7 @@ class Modeler(QGLWidget):
         self.installEventFilter(self)
 
     def _updateMinMouseClickDist(self):
-        minDist = 10 / (0.5 * min(self.width(), self.height()))
+        minDist = 5 / (0.5 * min(self.width(), self.height()))
         self._minMouseClickDistSq = minDist*minDist
 
     def initializeGL(self):

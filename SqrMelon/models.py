@@ -16,6 +16,15 @@ class ModelNodeBase(object):
         self._scale = 1.0
         self._model = None
 
+    def duplicate(self):
+        newNode = self.__class__()
+        newNode._name = self._name
+        newNode._translation = self._translation
+        newNode._rotation = self._rotation
+        newNode._scale = self._scale
+        newNode._model = self._model
+        return newNode
+
     @property
     def name(self):
         return self._name
@@ -87,6 +96,12 @@ class ModelNodeBox(ModelNodeBase):
         super(ModelNodeBox, self).__init__()
         self._size = cgmath.Vec3(1,1,1)
 
+    def duplicate(self):
+        dupe = super(ModelNodeBox, self).duplicate()
+        dupe._size = self._size
+        self._model.onNodeDuplicated(self, dupe)
+        return dupe
+
     def getModelTransform(self):
         return cgmath.Mat44.scale(self._size[0] * 0.5, self._size[1] * 0.5, self._size[2] * 0.5) * super(ModelNodeBox, self).getModelTransform()
 
@@ -149,6 +164,12 @@ class Model(object):
         self._models.preNodeRemovedFromModel.emit(self, node)
         self._nodes.remove(node)
         self._models.postNodeRemovedFromModel.emit(self, node)
+        self._models.modelChanged.emit(self)
+
+    def onNodeDuplicated(self, originalNode, newNode):
+        self._models.preNodeAddedToModel.emit(self, newNode)
+        self._nodes.insert(self._nodes.index(originalNode)+1, newNode)
+        self._models.postNodeAddedToModel.emit(self, newNode)
         self._models.modelChanged.emit(self)
 
     def saveToElementTree(self, parentElement):

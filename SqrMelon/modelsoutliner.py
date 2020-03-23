@@ -140,12 +140,15 @@ class ModelsOutliner(QWidget):
 
         self._contextMenuModel = QMenu()
         self._contextMenuModel.addAction(icons.get('rename-48'), 'Rename').triggered.connect(self._onRenameModelOrNode)
+        self._contextMenuModel.addAction(icons.get('duplicate-48'), 'Duplicate').triggered.connect(self._onDuplicateModelOrNode)
         self._contextMenuModel.addSeparator()
         self._contextMenuModel.addAction(icons.get('box-48'), 'Add box').triggered.connect(self._onAddBox)
+        self._contextMenuModel.addSeparator()
         self._contextMenuModel.addAction(icons.get('delete-48'), 'Delete').triggered.connect(self._onDeleteModelOrNode)
 
         self._contextMenuModelNode = QMenu()
         self._contextMenuModelNode.addAction(icons.get('rename-48'), 'Rename').triggered.connect(self._onRenameModelOrNode)
+        self._contextMenuModelNode.addAction(icons.get('duplicate-48'), 'Duplicate').triggered.connect(self._onDuplicateModelOrNode)
         self._contextMenuModelNode.addSeparator()
         self._contextMenuModelNode.addAction(icons.get('delete-48'), 'Delete').triggered.connect(self._onDeleteModelOrNode)
 
@@ -194,6 +197,12 @@ class ModelsOutliner(QWidget):
             text, ok = QInputDialog.getText(self, 'Rename', 'Name', QLineEdit.Normal, data.name)
             if ok:
                 data.name = str(text)
+
+    def _onDuplicateModelOrNode(self):
+        index = self._tree.currentIndex()
+        if index.isValid():
+            data = index.internalPointer()
+            data.duplicate()
 
     def _onAddModel(self):
         self._models.addModel()
