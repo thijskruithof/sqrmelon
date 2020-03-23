@@ -16,14 +16,14 @@ class ModelNodeBase(object):
         self._scale = 1.0
         self._model = None
 
-    def duplicate(self):
-        newNode = self.__class__()
-        newNode._name = self._name
-        newNode._translation = self._translation
-        newNode._rotation = self._rotation
-        newNode._scale = self._scale
-        newNode._model = self._model
-        return newNode
+    def duplicate(self, newModel=None):
+        dupe = self.__class__()
+        dupe._name = self._name
+        dupe._translation = self._translation
+        dupe._rotation = self._rotation
+        dupe._scale = self._scale
+        dupe._model = self._model if newModel is None else newModel
+        return dupe
 
     @property
     def name(self):
@@ -96,10 +96,10 @@ class ModelNodeBox(ModelNodeBase):
         super(ModelNodeBox, self).__init__()
         self._size = cgmath.Vec3(1,1,1)
 
-    def duplicate(self):
-        dupe = super(ModelNodeBox, self).duplicate()
+    def duplicate(self, newModel=None):
+        dupe = super(ModelNodeBox, self).duplicate(newModel)
         dupe._size = self._size
-        self._model.onNodeDuplicated(self, dupe)
+        dupe._model.onNodeDuplicated(self, dupe)
         return dupe
 
     def getModelTransform(self):
@@ -130,6 +130,16 @@ class Model(object):
         self._name = "Model"
         self._nodes = []
         self._models = None
+
+    def duplicate(self):
+        dupe = Model()
+        dupe._name = self._name
+        dupe._models = self._models
+        dupe._nodes = []
+        dupe._models.onModelDuplicated(self, dupe)
+        # Duplicate our nodes (and have them added to ourself)
+        for node in self._nodes:
+            node.duplicate(dupe)
 
     @property
     def models(self):
@@ -168,7 +178,7 @@ class Model(object):
 
     def onNodeDuplicated(self, originalNode, newNode):
         self._models.preNodeAddedToModel.emit(self, newNode)
-        self._nodes.insert(self._nodes.index(originalNode)+1, newNode)
+        self._nodes.insert(originalNode._model._nodes.index(originalNode)+1, newNode)
         self._models.postNodeAddedToModel.emit(self, newNode)
         self._models.modelChanged.emit(self)
 
@@ -230,6 +240,11 @@ class Models(QObject):
         self.preModelRemoved.emit(model)
         self._models.remove(model)
         self.postModelRemoved.emit(model)
+
+    def onModelDuplicated(self, originalModel, newModel):
+        self.preModelAdded.emit(newModel)
+        self._models.insert(self._models.index(originalModel) + 1, newModel)
+        self.postModelAdded.emit(newModel)
 
     def saveToProject(self):
         project = currentProjectFilePath()
