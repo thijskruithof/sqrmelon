@@ -90,7 +90,7 @@ class PassData(object):
         self.name = name
 
 
-def _deserializePasses(sceneFile):
+def _deserializePasses(sceneFile, models):
     """
     :type sceneFile: FilePath
     :rtype: list[PassData]
@@ -102,6 +102,24 @@ def _deserializePasses(sceneFile):
     xTemplate = parseXMLWithIncludes(templatePath)
     passes = []
     frameBufferMap = {}
+
+    # Start with adding the models here as passes. Stored by their model name
+    for model in models.models:
+        inputs = []
+        if model.name not in frameBufferMap:
+            frameBufferMap[model.name] = len(frameBufferMap)
+        size = 256,256
+        fragStitches = []
+        fragStitches.append(templateDir.join("header.glsl"))
+        fragStitches.append(templateDir.join("noiselib.glsl"))
+        fragStitches.append(templateDir.join("sdf.glsl"))
+        fragStitches.append(templateDir.join("test3d.glsl"))
+
+        # Add a pass for rendering a 3D texture
+        passes.append(
+            PassData([], fragStitches, {}, inputs, frameBufferMap.get(model.name, -1), False, size, False, None, 1, None, True, None))
+
+
     for xPass in xTemplate:
         buffer = -1
         if 'buffer' in xPass.attrib:
@@ -127,8 +145,8 @@ def _deserializePasses(sceneFile):
 
         is3d = int(xPass.attrib.get('is3d', 0)) != 0
         if is3d:
-            assert (size[0] ** 0.5) == size[1]
-            size = size[0], size[1]
+            assert (size[0] == size[1])
+            size = size[0], size[0]
 
         outputs = int(xPass.attrib.get('outputs', 1))
 
@@ -300,14 +318,14 @@ class Scene(object):
         return passThrough
 
     @classmethod
-    def getScene(cls, sceneFile):
+    def getScene(cls, sceneFile, models):
         assert isinstance(sceneFile, FilePath)
         # avoid compiler hick-ups during playback by caching the scenes once they were compiled
         if sceneFile in cls.cache:
             return cls.cache[sceneFile]
-        return cls(sceneFile)
+        return cls(sceneFile,models)
 
-    def __init__(self, sceneFile):
+    def __init__(self, sceneFile, models):
         assert isinstance(sceneFile, FilePath)
         Scene.cache[sceneFile] = self
         self.__w = 0
@@ -339,6 +357,10 @@ class Scene(object):
         hbar.addWidget(btn)
         btn.clicked.connect(self.__errorDialog.accept)
 
+        self._models = models
+        models.postModelAdded.connect(self._onModelAddedOrRemoved)
+        models.postModelRemoved.connect(self._onModelAddedOrRemoved)
+
         self._reload(None)
 
     def setDebugPass(self, nameOrId=None, colorBuffer=0):
@@ -347,6 +369,9 @@ class Scene(object):
             if passData.name == nameOrId or i == nameOrId:
                 self._debugPassId = i, colorBuffer
                 return
+
+    def _onModelAddedOrRemoved(self, model):
+        self._reload(None)
 
     def _reload(self, path):
         if path:
@@ -357,7 +382,7 @@ class Scene(object):
                 return
             self.fileSystemWatcher_scene.addPath(path)
 
-        self.passes = _deserializePasses(self.__filePath)
+        self.passes = _deserializePasses(self.__filePath, self._models)
 
         self.fileSystemWatcher = FileSystemWatcher()
         self.fileSystemWatcher.fileChanged.connect(self._rebuild)
@@ -715,17 +740,32 @@ class Scene(object):
             if self.passes[i].drawCommand is not None:
                 exec self.passes[i].drawCommand
             else:
-                FullScreenRectSingleton.instance().draw()
+                if not self.passes[i].is3d:
+                    FullScreenRectSingleton.instance().draw()
+                else:
+                    buffers = self.colorBuffers[passData.targetBufferId]
 
-            # duct tape the 2D color buffer(s) into 3D color buffer(s)
-            if self.passes[i].is3d:
-                buffers = self.colorBuffers[passData.targetBufferId]
-                for j, buffer in enumerate(buffers):
-                    buffer.use()
-                    data = glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_FLOAT)
-                    FrameBuffer.clear()
-                    buffers[j] = Texture3D(Texture.RGBA32F, buffer.height(), True, data)
-                    buffers[j].original = buffer
+                    # Set up 3d textures
+                    texture3Ds = {}
+                    for j, buffer in enumerate(buffers):
+                        texture3Ds[j] = Texture3D(Texture.RGBA32F, buffer.height(), True)
+                        texture3Ds[j].original = buffer
+
+                    # Render multiple slices
+                    for slice in xrange(0, self.passes[i].resolution[0]):
+                        # Render slice to 2d framebuffer
+                        FullScreenRectSingleton.instance().draw()
+
+                        # Get pixels from framebuffer and upload the slice
+                        for j, buffer in enumerate(buffers):
+                            buffer.use()
+                            data = glGetTexImage(GL_TEXTURE_2D, 0, GL_RGBA, GL_FLOAT)
+                            FrameBuffer.clear()
+                            texture3Ds[j].setSlicePixels(slice, data)
+
+                    # Switch our 2D buffers by the now up-to-date 3D ones
+                    for j, buffer in enumerate(buffers):
+                        buffers[j] = texture3Ds[j]
 
             # enable mip mapping on static textures
             if not self.passes[i].realtime:

@@ -294,7 +294,7 @@ class App(QMainWindowState):
             if shot is None:
                 continue
             sceneFile = currentScenesDirectory().join(shot.sceneName).ensureExt(SCENE_EXT)
-            scene = Scene.getScene(sceneFile)
+            scene = Scene.getScene(sceneFile, self.__models)
             scene.setSize(WIDTH, HEIGHT)
 
             uniforms = self.__shotsManager.evaluate(beats)
@@ -420,7 +420,7 @@ class App(QMainWindowState):
             self.__profiler.setScene(None)
             return
         sceneFile = currentScenesDirectory().join(shot.sceneName + SCENE_EXT)
-        sc = Scene.getScene(sceneFile)
+        sc = Scene.getScene(sceneFile, self.__models)
         self.__sceneView.setScene(sc)
         self.__profiler.setScene(sc)
 

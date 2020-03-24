@@ -139,16 +139,22 @@ class Texture3D(object):
         self._height = resolution
         self._depth = resolution
 
+        self._channels = channels
+
         self._id = glGenTextures(1)
 
         self.use()
-        glTexImage3D(GL_TEXTURE_3D, 0, channels[0], resolution, resolution, resolution, 0, channels[1], channels[2], data)
+        glTexImage3D(GL_TEXTURE_3D, 0, channels[0], resolution, resolution, resolution, 0, channels[1], channels[2], None)
         glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
         glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
         if not tile:
             glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE)
             glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
             glTexParameteri(GL_TEXTURE_3D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
+
+    def setSlicePixels(self, sliceIndex, data2d):
+        self.use()
+        glTexSubImage3D(GL_TEXTURE_3D, 0,  0,0, sliceIndex, self._width, self._height, 1, self._channels[1], self._channels[2], data2d)
 
     def use(self):
         glBindTexture(GL_TEXTURE_3D, self._id)
