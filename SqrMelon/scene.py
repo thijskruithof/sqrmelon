@@ -70,7 +70,8 @@ class PassData(object):
                  numOutputBuffers=1,
                  drawCommand=None,
                  is3d=False,
-                 name=None):
+                 name=None,
+                 outputBufferUniformNameOverride=None):
         self.vertStitches = vertStitches
         self.fragStitches = fragStitches
         self.uniforms = uniforms
@@ -88,6 +89,7 @@ class PassData(object):
             assert not drawCommand, '3D textures can not be rendered using  custom drawing code.'
         self.is3d = is3d
         self.name = name
+        self.outputBufferUniformNameOverride = outputBufferUniformNameOverride
 
 
 def _deserializePasses(sceneFile, models):
@@ -115,9 +117,11 @@ def _deserializePasses(sceneFile, models):
         fragStitches.append(templateDir.join("sdf.glsl"))
         fragStitches.append(templateDir.join("test3d.glsl"))
 
+        uniformNameOverride = "uModel%s" % model.name
+
         # Add a pass for rendering a 3D texture
         passes.append(
-            PassData([], fragStitches, {}, inputs, frameBufferMap.get(model.name, -1), False, size, False, None, 1, None, True, None))
+            PassData([], fragStitches, {}, inputs, frameBufferMap.get(model.name, -1), False, size, False, None, 1, None, True, None, uniformNameOverride))
 
 
     for xPass in xTemplate:
@@ -173,6 +177,16 @@ def _deserializePasses(sceneFile, models):
 
             i += 1
             key = 'input%s' % i
+
+        inputModels = False
+        if 'inputModels' in xPass.attrib:
+            inputModels = xPass.attrib['inputModels'].lower() == 'true'
+
+        # Add all model's output buffers as inputs to this pass
+        if inputModels:
+            for model in models.models:
+                inputs.append((frameBufferMap[model.name], 0))
+
         vertStitches = []
         fragStitches = []
         uniforms = {}
@@ -189,7 +203,7 @@ def _deserializePasses(sceneFile, models):
                 uniforms[xUniform.attrib['name']] = [float(x.strip()) for x in xUniform.attrib['value'].split(',')]
 
         passes.append(
-            PassData(vertStitches, fragStitches, uniforms, inputs, frameBufferMap.get(buffer, -1), realtime, size, tile, factor, outputs, xPass.attrib.get('drawcommand', None), is3d, xPass.attrib.get('name', None)))
+            PassData(vertStitches, fragStitches, uniforms, inputs, frameBufferMap.get(buffer, -1), realtime, size, tile, factor, outputs, xPass.attrib.get('drawcommand', None), is3d, xPass.attrib.get('name', None), None))
     return passes
 
 
@@ -607,12 +621,17 @@ class Scene(object):
             except IndexError as e:
                 raise IndexError('Template for current scene has inputs fetching from non-existant buffers.')
             inputBuffer.use()
-            if isinstance(inputBuffer, Texture3D):
-                glUniform1i(glGetUniformLocation(self.shaders[passId], 'uImages3D[%s]' % j3d), j)
-                j3d += 1
-            else:
-                glUniform1i(glGetUniformLocation(self.shaders[passId], 'uImages[%s]' % j2d), j)
-                j2d += 1
+            uniformName = self.passes[passId].outputBufferUniformNameOverride
+            if uniformName is None:
+                if isinstance(inputBuffer, Texture3D):
+                    uniformName = 'uImages3D[%s]' % j3d
+                    j3d += 1
+                else:
+                    uniformName = 'uImages[%s]' % j2d
+                    j2d += 1
+            uniformId = glGetUniformLocation(self.shaders[passId], uniformName)
+            if uniformId != -1:
+                glUniform1i(uniformId, j)
 
         if additionalTextureUniforms:
             for name in additionalTextureUniforms:
