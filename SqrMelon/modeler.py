@@ -717,7 +717,10 @@ class Modeler(QGLWidget):
             return
 
         currentModelIndex = int(xMod.attrib['CurrentModel'])
-        self.selectedModelNodeChanged.emit(self._models.models[currentModelIndex], None)
+        if currentModelIndex >= 0 and currentModelIndex < len(self._models.models):
+            self.selectedModelNodeChanged.emit(self._models.models[currentModelIndex], None)
+        else:
+            self.selectedModelNodeChanged.emit(None, None)
 
         ct = map(float, xMod.attrib['CameraTransform'].split(','))
         self._cameraTransform = cgmath.Mat44(ct[0],ct[1],ct[2],ct[3],ct[4],ct[5],ct[6],ct[7],ct[8],ct[9],ct[10],ct[11],ct[12],ct[13],ct[14],ct[15])
