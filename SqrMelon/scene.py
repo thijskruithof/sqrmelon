@@ -15,7 +15,6 @@ from qtutil import *
 from util import currentProjectFilePath, parseXMLWithIncludes, currentProjectDirectory, templatePathFromScenePath
 from gl_shaders import compileProgram
 
-
 class TexturePool(object):
     """
     Utility to fetch & bind textures by file path, loaded only once.
@@ -299,6 +298,7 @@ class Scene(object):
     passThroughProgram = None
     STATIC_VERT = '#version 410\nout vec2 vUV;void main(){gl_Position=vec4(step(1,gl_VertexID)*step(-2,-gl_VertexID)*2-1,gl_VertexID-gl_VertexID%2-1,0,1);vUV=gl_Position.xy*.5+.5;}'
     PASS_THROUGH_FRAG = '#version 410\nin vec2 vUV;uniform vec4 uColor;uniform sampler2D uImages[1];out vec4 outColor0;void main(){outColor0=uColor*texture(uImages[0], vUV);}'
+    sceneView = None
 
     @classmethod
     def drawColorBufferToScreen(cls, colorBuffer, viewport, color=(1.0, 1.0, 1.0, 1.0)):
@@ -411,6 +411,8 @@ class Scene(object):
         self.__cameraData = None
 
     def _rebuild(self, path, index=None):
+        Scene.sceneView.makeCurrent()
+
         if path:
             path = FilePath(path)
             time.sleep(0.01)

@@ -37,6 +37,8 @@ class SceneView(QGLWidget):
         glFormat.setDefaultFormat(glFormat)
         super(SceneView, self).__init__()
 
+        Scene.sceneView = self
+
         self._timer = timer
         self._animator = shotManager
         self.__overlays = overlays
