@@ -1,11 +1,11 @@
 <?xml version="1.0" ?>
 <scene camera="0,1,-10,0,0,0" template="../Templates/default.xml">
-	<Shot enabled="True" end="8.0" name="BasicExample" preroll="0.0" scene="BasicExample" speed="1.0" start="0.0">
-		<Channel mode="hermite" name="uOrigin.x">0.0,0.0,0.0,0.0,0.0,0.0,0,0</Channel>
-		<Channel mode="hermite" name="uOrigin.y">0.0,0.0,0.0,1.0,0.0,0.0,0,0</Channel>
-		<Channel mode="hermite" name="uOrigin.z">0.0,0.0,0.0,-10.0,0.0,0.0,0,0</Channel>
-		<Channel mode="hermite" name="uAngles.x">0.0,0.0,0.0,0.0,0.0,0.0,0,0</Channel>
-		<Channel mode="hermite" name="uAngles.y">0.0,0.0,0.0,0.0,0.0,0.0,0,0</Channel>
+	<Shot enabled="True" end="8.0" name="w" preroll="0.0" scene="BasicExample" speed="1.0" start="0.0">
+		<Channel mode="hermite" name="uOrigin.x">0.0,0.0,0.0,2.79674354926,0.0,0.0,0,0</Channel>
+		<Channel mode="hermite" name="uOrigin.y">0.0,0.0,0.0,0.491062504959,0.0,0.0,0,0</Channel>
+		<Channel mode="hermite" name="uOrigin.z">0.0,0.0,0.0,-0.658137703723,0.0,0.0,0,0</Channel>
+		<Channel mode="hermite" name="uAngles.x">0.0,0.0,0.0,0.0189035916824,0.0,0.0,0,0</Channel>
+		<Channel mode="hermite" name="uAngles.y">0.0,0.0,0.0,-1.10775047259,0.0,0.0,0,0</Channel>
 		<Channel mode="hermite" name="uAngles.z">0.0,0.0,0.0,0.0,0.0,0.0,0,0</Channel>
 		<Channel mode="hermite" name="uFovBias">0.0,0.0,0.0,0.32,0.0,0.0,0,0</Channel>
 		<Channel mode="hermite" name="uSharpDist">0.0,0.0,0.0,25.0,0.0,0.0,0,0</Channel>
