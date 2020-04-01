@@ -4,6 +4,7 @@ import shutil
 import ctypes
 import functools
 import traceback
+import threading
 
 from camerawidget import Camera
 from fileutil import FileDialog, FilePath
@@ -19,7 +20,7 @@ from timeslider import Timer, TimeSlider
 from models import Models
 import modeler
 from modelsoutliner import ModelsOutliner
-from util import PROJ_EXT, SCENE_EXT, gSettings, currentProjectFilePath, currentProjectDirectory,setCurrentProjectFilePath, currentScenesDirectory
+from util import PROJ_EXT, SCENE_EXT, gSettings, currentProjectFilePath, currentProjectDirectory,setCurrentProjectFilePath, currentScenesDirectory, currentModelsDirectory
 import os
 from qtutil import *
 import icons
@@ -109,6 +110,7 @@ class App(QMainWindowState):
         self.__modelsOutliner = ModelsOutliner(self.__models)
         self.__modelsOutliner.selectedModelNodeChanged.connect(self.__modeler.setModelNode)
         self.__models.modelChanged.connect(self.__modeler.onModelChanged)
+        self.__models.modelChanged.connect(self._scheduleModelExport)
         self.__modeler.selectedModelNodeChanged.connect(self.__modelsOutliner.selectModelNode)
 
         self.timeSlider = TimeSlider(self._timer, self.__shotsManager)
@@ -232,6 +234,8 @@ class App(QMainWindowState):
         self.__menuBar.addMenu(self.__dockWidgetMenu)
         self.__menuBar.addAction('About').triggered.connect(self.__aboutDialog)
         self.__restoreUiLock(lock)
+
+        self._exportModelTimer = None
 
     def _addDockWidget(self, widget, name=None, where=Qt.RightDockWidgetArea, direction=Qt.Horizontal):
         dockWidget = super(App, self)._addDockWidget(widget, name, where, direction)
@@ -402,6 +406,7 @@ class App(QMainWindowState):
         self._timer.saveState()
         self.__models.saveToProject()
         self.__modeler.saveState()
+
         QMessageBox.information(self, 'Save succesful!', 'Animation, shot & timing changes have been saved.')
 
     def closeEvent(self, event):
@@ -480,6 +485,22 @@ class App(QMainWindowState):
         if not res:
             return
         self.__openProject(res)
+
+    def _scheduleModelExport(self, model):
+        if model is None:
+            return
+
+        if not self._exportModelTimer is None:
+            self._exportModelTimer.cancel()
+
+        self._exportModelTimer = threading.Timer(0.25, self._doModelExport)
+        self._exportedModel = model
+        self._exportModelTimer.start()
+
+    def _doModelExport(self):
+        self._exportModelTimer = None
+        if not self._exportedModel is None:
+            self._exportedModel.export(currentModelsDirectory())
 
 
 def run():

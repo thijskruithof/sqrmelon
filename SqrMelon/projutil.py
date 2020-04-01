@@ -32,6 +32,9 @@ def currentTemplatesDirectory():
     # AttributeError if no current project
     return currentProjectDirectory().join('Templates')
 
+def currentModelsDirectory():
+    # AttributeError if no current project
+    return currentProjectDirectory().join('Models')
 
 def templatePathFromScenePath(sceneFile):
     xScene = parseXMLWithIncludes(sceneFile)

@@ -4,6 +4,39 @@ from util import toPrettyXml, currentProjectFilePath
 from xml.etree import cElementTree
 from projutil import parseXMLWithIncludes
 from xmlutil import vec3ToXmlAttrib, xmlAttribToVec3
+from fileutil import FilePath
+
+
+class Bounds(object):
+    def __init__(self):
+        self._min = None
+        self._max = None
+
+    def add(self, other):
+        if isinstance(other, Bounds):
+            self.add(other.min)
+            self.add(other.max)
+            return
+
+        if self._min is None:
+            self._min = other
+            self._max = other
+            return
+
+        self._min = cgmath.Vec3(min(self._min[0], other[0]), min(self._min[1], other[1]), min(self._min[2], other[2]))
+        self._max = cgmath.Vec3(max(self._max[0], other[0]), max(self._max[1], other[1]), max(self._max[2], other[2]))
+
+    @property
+    def isValid(self):
+        return not self._min is None
+
+    @property
+    def min(self):
+        return self._min
+
+    @property
+    def max(self):
+        return self._max
 
 class ModelNodeBase(object):
     """
@@ -48,6 +81,7 @@ class ModelNodeBase(object):
     @translation.setter
     def translation(self, tr):
         self._translation = cgmath.Vec3(tr)
+        self._model._models.modelChanged.emit(self._model)
 
     @property
     def rotation(self):
@@ -56,6 +90,7 @@ class ModelNodeBase(object):
     @rotation.setter
     def rotation(self, r):
         self._rotation = cgmath.Vec3(r)
+        self._model._models.modelChanged.emit(self._model)
 
     @property
     def scale(self):
@@ -64,6 +99,7 @@ class ModelNodeBase(object):
     @scale.setter
     def scale(self, v):
         self._scale = v
+        self._model._models.modelChanged.emit(self._model)
 
     def getModelTransform(self):
         return cgmath.Mat44.scale(self._scale, self._scale, self._scale) * \
@@ -112,6 +148,7 @@ class ModelNodeBox(ModelNodeBase):
     @size.setter
     def size(self, s):
         self._size = cgmath.Vec3(s)
+        self._model._models.modelChanged.emit(self._model)
 
     def saveToElementTree(self, parentElement):
         xNode = super(ModelNodeBox, self).saveToElementTree(parentElement)
@@ -121,6 +158,21 @@ class ModelNodeBox(ModelNodeBase):
     def loadFromElementTree(self, element):
         super(ModelNodeBox, self).loadFromElementTree(element)
         self._size = xmlAttribToVec3(element.attrib['size'])
+
+    def getBounds(self):
+        modelTransform = self.getModelTransform()
+        bounds = Bounds()
+        for z in xrange(-1,2,2):
+            for y in xrange(-1, 2, 2):
+                for x in xrange(-1, 2, 2):
+                    p = cgmath.Vec4(x, y, z, 1)
+                    p = modelTransform * p
+                    bounds.add(cgmath.Vec3(p[0],p[1],p[2]))
+        return bounds
+
+    def getFieldFragmentShaderText(self):
+        return "\td = min(d, fBox(p - vec3(%f,%f,%f), vec3(%f,%f,%f)));\n" % (self.translation[0],self.translation[1],self.translation[2], 0.5*self.size[0],0.5*self.size[1],0.5*self.size[2])
+
 
 class Model(object):
     """
@@ -197,6 +249,54 @@ class Model(object):
             self._nodes.append(node)
             node.loadFromElementTree(xNode)
 
+    def getBounds(self):
+        bounds = Bounds()
+        for node in self.nodes:
+            bounds.add(node.getBounds())
+        return bounds
+
+    def getFieldFragmentShaderText(self):
+        bounds = self.getBounds()
+        boundsRange = bounds.max - bounds.min
+        # Add 5% border to bounds
+        bounds.add(bounds.min - boundsRange * 0.05)
+        bounds.add(bounds.max + boundsRange * 0.05)
+        boundsRange = bounds.max - bounds.min
+
+        # Make bounds uniform
+        maxBoundRange = max(max(boundsRange[0], boundsRange[1]), boundsRange[2])
+        boundsIncrease = cgmath.Vec3(maxBoundRange - boundsRange[0], maxBoundRange - boundsRange[1], maxBoundRange - boundsRange[2])
+        bounds.add(bounds.min - boundsIncrease * 0.5)
+        bounds.add(bounds.max + boundsIncrease * 0.5)
+        boundsRange = bounds.max - bounds.min
+
+        str = "uniform float uSlice;\n"+\
+        "\n"+\
+        "void main()\n"+\
+        "{\n"+\
+        "\tvec3 p = vec3(gl_FragCoord.x,gl_FragCoord.y,uSlice)/uResolution.x;\n"+\
+        ("\tp = p * vec3(%f,%f,%f) + vec3(%f,%f,%f);\n" % (boundsRange[0],boundsRange[1],boundsRange[2],bounds.min[0],bounds.min[1],bounds.min[2])) +\
+        "\n"+\
+        "\tfloat d = 99999.0;\n"
+
+        for node in self.nodes:
+            str += node.getFieldFragmentShaderText()
+
+        str += "\toutColor0=vec4(d);\n"+\
+        "}\n"
+        return str
+
+    def export(self, path):
+        filePath = FilePath(path)
+        filePath = filePath.join("%s.glsl" % self._name)
+        filePath.ensureExists()
+
+        str = self.getFieldFragmentShaderText()
+
+        with filePath.edit() as fh:
+            fh.write(str)
+
+        return
 
 class Models(QObject):
     """
@@ -211,7 +311,6 @@ class Models(QObject):
     preNodeRemovedFromModel = pyqtSignal(object, object)
     postNodeRemovedFromModel = pyqtSignal(object, object)
     modelChanged = pyqtSignal(object)
-
 
     def __init__(self):
         super(Models, self).__init__()
