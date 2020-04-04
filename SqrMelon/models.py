@@ -171,7 +171,10 @@ class ModelNodeBox(ModelNodeBase):
         return bounds
 
     def getFieldFragmentShaderText(self):
-        return "\td = min(d, fBox(p - vec3(%f,%f,%f), vec3(%f,%f,%f)));\n" % (self.translation[0],self.translation[1],self.translation[2], 0.5*self.size[0],0.5*self.size[1],0.5*self.size[2])
+        # Get model transform (without our own size in it)
+        invModelTransform = super(ModelNodeBox, self).getModelTransform()
+        invModelTransform.inverse()
+        return "\td = min(d, fBox((p4*mat4(%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f)).xyz, vec3(%f,%f,%f)));\n" % (invModelTransform[0],invModelTransform[4],invModelTransform[8],invModelTransform[12], invModelTransform[1],invModelTransform[5],invModelTransform[9],invModelTransform[13], invModelTransform[2], invModelTransform[6],invModelTransform[10],invModelTransform[14], invModelTransform[3],invModelTransform[7],invModelTransform[11],invModelTransform[15], 0.5*self.size[0],0.5*self.size[1],0.5*self.size[2])
 
 
 class Model(object):
@@ -276,6 +279,7 @@ class Model(object):
         "{\n"+\
         "\tvec3 p = vec3(gl_FragCoord.x,gl_FragCoord.y,uSlice)/uResolution.x;\n"+\
         ("\tp = p * vec3(%f,%f,%f) + vec3(%f,%f,%f);\n" % (boundsRange[0],boundsRange[1],boundsRange[2],bounds.min[0],bounds.min[1],bounds.min[2])) +\
+        "\tvec4 p4 = vec4(p, 1.0);\n"+\
         "\n"+\
         "\tfloat d = 99999.0;\n"
 
