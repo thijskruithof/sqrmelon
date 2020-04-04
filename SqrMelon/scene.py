@@ -483,8 +483,12 @@ class Scene(object):
                 try:
                     code = e.args[1][0].split('\n')
                 except:
+                    print "Error compiling shader!"
                     print e.args
-                    print 'pass: ' + passData.name
+                    if not passData.name is None:
+                        print 'pass %d: %s' % (i, passData.name)
+                    else:
+                        print 'pass %d' % i
                     print 'fragCode:'
                     print fragCode
                     return
