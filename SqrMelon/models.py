@@ -48,6 +48,7 @@ class ModelNodeBase(object):
         self._rotation = cgmath.Vec3(0,0,0)
         self._scale = 1.0
         self._model = None
+        self._subtractive = False
 
     def duplicate(self, newModel=None):
         dupe = self.__class__()
@@ -99,6 +100,15 @@ class ModelNodeBase(object):
     @scale.setter
     def scale(self, v):
         self._scale = v
+        self._model._models.modelChanged.emit(self._model)
+
+    @property
+    def subtractive(self):
+        return self._subtractive
+
+    @subtractive.setter
+    def subtractive(self, s):
+        self._subtractive = s
         self._model._models.modelChanged.emit(self._model)
 
     def getModelTransform(self):
@@ -174,8 +184,15 @@ class ModelNodeBox(ModelNodeBase):
         # Get model transform (without our own size in it)
         invModelTransform = super(ModelNodeBox, self).getModelTransform()
         invModelTransform.inverse()
-        return "\td = min(d, fBox((p4*mat4(%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f)).xyz, vec3(%f,%f,%f)));\n" % (invModelTransform[0],invModelTransform[4],invModelTransform[8],invModelTransform[12], invModelTransform[1],invModelTransform[5],invModelTransform[9],invModelTransform[13], invModelTransform[2], invModelTransform[6],invModelTransform[10],invModelTransform[14], invModelTransform[3],invModelTransform[7],invModelTransform[11],invModelTransform[15], 0.5*self.size[0],0.5*self.size[1],0.5*self.size[2])
 
+        str = "\td = "
+        if self._subtractive:
+            str += "max(d, -"
+        else:
+            str += "min(d, "
+
+        str += "fBox((p4*mat4(%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f)).xyz, vec3(%f,%f,%f)));\n" % (invModelTransform[0],invModelTransform[4],invModelTransform[8],invModelTransform[12], invModelTransform[1],invModelTransform[5],invModelTransform[9],invModelTransform[13], invModelTransform[2], invModelTransform[6],invModelTransform[10],invModelTransform[14], invModelTransform[3],invModelTransform[7],invModelTransform[11],invModelTransform[15], 0.5*self.size[0],0.5*self.size[1],0.5*self.size[2])
+        return str
 
 class Model(object):
     """

@@ -77,7 +77,10 @@ class ModelsModel(QAbstractItemModel):
             return obj
 
         if isinstance(obj, ModelNodeBox) and role == Qt.DecorationRole:
-            return icons.get('box-48')
+            if obj.subtractive:
+                return icons.get('box-sub-48')
+            else:
+                return icons.get('box-48')
 
         return None
 
@@ -153,6 +156,8 @@ class ModelsOutliner(QWidget):
         self._contextMenuModelNode.addAction(icons.get('rename-48'), 'Rename').triggered.connect(self._onRenameModelOrNode)
         self._contextMenuModelNode.addAction(icons.get('duplicate-48'), 'Duplicate').triggered.connect(self._onDuplicateModelOrNode)
         self._contextMenuModelNode.addSeparator()
+        self._contextMenuModelNode.addAction(icons.get('flip-48'), 'Toggle additive/subtractive').triggered.connect(self._onToggleAdditiveSubtractive)
+        self._contextMenuModelNode.addSeparator()
         self._contextMenuModelNode.addAction(icons.get('delete-48'), 'Delete').triggered.connect(self._onDeleteModelOrNode)
 
     def _getSelectedModelAndNode(self):
@@ -206,6 +211,12 @@ class ModelsOutliner(QWidget):
         if index.isValid():
             data = index.internalPointer()
             data.duplicate()
+
+    def _onToggleAdditiveSubtractive(self):
+        index = self._tree.currentIndex()
+        if index.isValid():
+            data = index.internalPointer()
+            data.subtractive = not data.subtractive
 
     def _onAddModel(self):
         self._models.addModel()
