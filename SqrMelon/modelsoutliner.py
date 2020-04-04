@@ -156,6 +156,9 @@ class ModelsOutliner(QWidget):
         self._contextMenuModelNode.addAction(icons.get('rename-48'), 'Rename').triggered.connect(self._onRenameModelOrNode)
         self._contextMenuModelNode.addAction(icons.get('duplicate-48'), 'Duplicate').triggered.connect(self._onDuplicateModelOrNode)
         self._contextMenuModelNode.addSeparator()
+        self._contextMenuModelNode.addAction(icons.get('arrow-up-48'), 'Move up').triggered.connect(self._onMoveUpNode)
+        self._contextMenuModelNode.addAction(icons.get('arrow-down-48'), 'Move down').triggered.connect(self._onMoveDownNode)
+        self._contextMenuModelNode.addSeparator()
         self._contextMenuModelNode.addAction(icons.get('flip-48'), 'Toggle additive/subtractive').triggered.connect(self._onToggleAdditiveSubtractive)
         self._contextMenuModelNode.addSeparator()
         self._contextMenuModelNode.addAction(icons.get('delete-48'), 'Delete').triggered.connect(self._onDeleteModelOrNode)
@@ -217,6 +220,18 @@ class ModelsOutliner(QWidget):
         if index.isValid():
             data = index.internalPointer()
             data.subtractive = not data.subtractive
+
+    def _onMoveUpNode(self):
+        index = self._tree.currentIndex()
+        if index.isValid():
+            data = index.internalPointer()
+            data.move(-1)
+
+    def _onMoveDownNode(self):
+        index = self._tree.currentIndex()
+        if index.isValid():
+            data = index.internalPointer()
+            data.move(1)
 
     def _onAddModel(self):
         self._models.addModel()

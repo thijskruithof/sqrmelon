@@ -111,6 +111,9 @@ class ModelNodeBase(object):
         self._subtractive = s
         self._model._models.modelChanged.emit(self._model)
 
+    def move(self, indexDelta):
+        self._model.onNodeMove(self, indexDelta)
+
     def getModelTransform(self):
         return cgmath.Mat44.scale(self._scale, self._scale, self._scale) * \
                cgmath.Mat44.rotateZ(self._rotation[2]) * \
@@ -252,6 +255,37 @@ class Model(object):
         self._models.preNodeAddedToModel.emit(self, newNode)
         self._nodes.insert(originalNode._model._nodes.index(originalNode)+1, newNode)
         self._models.postNodeAddedToModel.emit(self, newNode)
+        self._models.modelChanged.emit(self)
+
+    def onNodeMove(self, node, indexDelta):
+        curIndex = self._nodes.index(node)
+        newIndex = curIndex+indexDelta
+        if newIndex < 0 or newIndex >= len(self._nodes) or newIndex == curIndex:
+            return
+        curNode = self._nodes[curIndex]
+        newNode = self._nodes[newIndex]
+        self._models.preNodeRemovedFromModel.emit(self, curNode)
+        self._nodes.remove(curNode)
+        self._models.postNodeRemovedFromModel.emit(self, curNode)
+        self._models.preNodeRemovedFromModel.emit(self, newNode)
+        self._nodes.remove(newNode)
+        self._models.postNodeRemovedFromModel.emit(self, newNode)
+
+        if curIndex < newIndex:
+            self._models.preNodeAddedToModel.emit(self, newNode)
+            self._nodes.insert(curIndex, newNode)
+            self._models.postNodeAddedToModel.emit(self, newNode)
+            self._models.preNodeAddedToModel.emit(self, curNode)
+            self._nodes.insert(newIndex, curNode)
+            self._models.postNodeAddedToModel.emit(self, curNode)
+        else:
+            self._models.preNodeAddedToModel.emit(self, curNode)
+            self._nodes.insert(newIndex, curNode)
+            self._models.postNodeAddedToModel.emit(self, curNode)
+            self._models.preNodeAddedToModel.emit(self, newNode)
+            self._nodes.insert(curIndex, newNode)
+            self._models.postNodeAddedToModel.emit(self, newNode)
+
         self._models.modelChanged.emit(self)
 
     def saveToElementTree(self, parentElement):
