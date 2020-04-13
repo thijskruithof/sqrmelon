@@ -716,7 +716,10 @@ class Modeler(QGLWidget):
         if xMod is None:
             return
 
-        currentModelIndex = int(xMod.attrib['CurrentModel'])
+        if 'CurrentModel' in xMod.attrib:
+            currentModelIndex = int(xMod.attrib['CurrentModel'])
+        else:
+            currentModelIndex = -1
         if currentModelIndex >= 0 and currentModelIndex < len(self._models.models):
             self.selectedModelNodeChanged.emit(self._models.models[currentModelIndex], None)
         else:
