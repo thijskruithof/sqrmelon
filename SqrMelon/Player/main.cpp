@@ -29,7 +29,7 @@
 #include "wavesabreplayerlib.h"
 #include "wavesabrecore.h"
 using namespace WaveSabrePlayerLib;
-#include "music.h"
+#include "wabesabre/music.h"
 #endif
 
 #include <xmmintrin.h>
