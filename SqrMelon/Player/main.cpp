@@ -271,6 +271,8 @@ bool evalDemo(float seconds, float beats, int width, int height, float deltaSeco
 	int scene = gIntData[shot + gShotScene];
 	int passCursor = 0;
 
+    bool shouldInitFrustum = true;
+
 	// Evaluate curves & physics and store in buffer
 	for (int uniformId = 0; uniformId < animEntries; ++uniformId)
 	{
@@ -312,14 +314,16 @@ bool evalDemo(float seconds, float beats, int width, int height, float deltaSeco
 			uV[10] = orient.data.elems[10];
 		}
 
-		if (lstrcmpiA(gTextPool[gIntData[idx + gShotUniformData]], "uFovBias") == 0)
+        bool isFovBias = lstrcmpiA(gTextPool[gIntData[idx + gShotUniformData]], "uFovBias") == 0;
+		if (shouldInitFrustum || isFovBias)
 		{
-			float tfov = tanf(animData[uniformId * 4]);
+            float tfov = tanf(isFovBias ? animData[uniformId * 4] : 0.5f);
 			float xfov = tfov * ((float)width / (float)height);
 			uFrustum[0] = -xfov; uFrustum[1] = -tfov; uFrustum[2] = 1.0f;
 			uFrustum[4] = xfov; uFrustum[5] = -tfov; uFrustum[6] = 1.0f;
 			uFrustum[8] = -xfov; uFrustum[9] = tfov; uFrustum[10] = 1.0f;
 			uFrustum[12] = xfov; uFrustum[13] = tfov; uFrustum[14] = 1.0f;
+            shouldInitFrustum = false;
 		}
 	}
 
