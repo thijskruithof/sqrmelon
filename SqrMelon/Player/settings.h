@@ -21,6 +21,7 @@
 #define SPEED 1.0f
 #endif
 
-const char* gWindowTitle = "Made with SqrMelon";
+#define WINDOW_TITLE "Made with SqrMelon"
+
 
 #define RESOLUTION_SELECTOR

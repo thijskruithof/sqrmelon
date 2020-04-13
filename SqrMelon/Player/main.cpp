@@ -25,49 +25,11 @@
 #endif
 
 #ifdef AUDIO_WAVESABRE
+#define FOURCC DWORD
 #include "wavesabreplayerlib.h"
 #include "wavesabrecore.h"
 using namespace WaveSabrePlayerLib;
 #include "music.h"
-extern "C"{
-	const IID GUID_NULL; 
-	extern "C" int _purecall() { return 0; };
-}
-void* __cdecl operator new(unsigned int x) { return HeapAlloc(GetProcessHeap(), 0, x); }
-void* __cdecl operator new[](unsigned int x) { return HeapAlloc(GetProcessHeap(), 0, x); }
-#pragma function(memcpy)
-extern "C" void* __cdecl memcpy(void* dst, const void* src, size_t count) { count--; do { ((char*)dst)[count] = ((char*)src)[count]; } while(count--); return dst; }
-extern "C" __declspec(naked) void __cdecl _allshl(void)
-{
-	__asm {
-		// Handle shifts of 64 or more bits (all get 0)
-		cmp     cl, 64
-		jae     short RETZERO
-		// Handle shifts of between 0 and 31 bits
-		cmp     cl, 32
-		jae     short MORE32
-		shld    edx, eax, cl
-		shl     eax, cl
-		ret
-		// Handle shifts of between 32 and 63 bits
-		MORE32 :
-		mov     edx, eax
-			xor     eax, eax
-			and     cl, 31
-			shl     edx, cl
-			ret
-			// return 0 in edx:eax
-			RETZERO :
-		xor     eax, eax
-			xor     edx, edx
-			ret
-	}
-}
-
-void __cdecl operator delete(void* p, unsigned int x) { HeapFree(GetProcessHeap(), 0, p); }
-void __cdecl operator delete(void* p) { HeapFree(GetProcessHeap(), 0, p); }
-void __cdecl operator delete[](void* p) { HeapFree(GetProcessHeap(), 0, p); }
-void __cdecl operator delete[](void* p, unsigned int x) { HeapFree(GetProcessHeap(), 0, p); }
 #endif
 
 #include <xmmintrin.h>
@@ -78,6 +40,8 @@ void __cdecl operator delete[](void* p, unsigned int x) { HeapFree(GetProcessHea
 #ifndef DEMO_HEIGHT
 #define DEMO_HEIGHT 720
 #endif
+
+const char* gWindowTitle = WINDOW_TITLE;
 
 extern "C" {int _fltused; }
 
@@ -592,7 +556,7 @@ void main()
 #endif
 	
 #ifdef AUDIO_WAVESABRE
-	WaveSabrePlayerLib::RealtimePlayer player(&Song);
+	WaveSabrePlayerLib::RealtimePlayer player(&Song, 3 /* numRenderThreads */);
 	const int BPM = player.GetTempo();
 	player.Play();
 #endif
