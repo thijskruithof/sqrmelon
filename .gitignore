@@ -30,3 +30,5 @@ SqrMelon/cgmath/Source/Debug/
 SqrMelon/cgmath/Source/Release/
 
 *.obj
+
+SqrMelon/Player/wavesabre/
