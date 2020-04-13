@@ -47,6 +47,18 @@ You'll also need an actual soundtrack. A musician with the 64klang2 VSTi should 
 64k2Song.h
 Which you then also add in SqrMelon/Player/64klang2/
 
+As a last step open settings.h and make sure AUDIO_64KLANG2 is defined (and NO_AUDIO isn't and none of the other AUDIO_XXXXX are either.).
+
+### WaveSabre
+
+To integrate WaveSabre you first need to download the WaveSabre source code from here:
+https://github.com/thijskruithof/WaveSabre
+And then copy the WaveSabreCore folder and the WaveSabrePlayerLib folder (including all their subfolders) to SqrMelon/Player/WaveSabre/
+
+You'll also need an actual soundtrack. A musician can make one with the WaveSabre VSTi plugins and use the WaveSabre Project Manager tool to generate a header file. Copy this head filer to SqrMelon/Player/WaveSabre/ and rename it to music.h.
+
+As a last step open settings.h and make sure AUDIO_WAVESABRE is defined (and NO_AUDIO isn't and none of the other AUDIO_XXXXX are either.).
+
 
 ## Executable compression
 
