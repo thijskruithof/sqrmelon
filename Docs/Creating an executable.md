@@ -53,12 +53,13 @@ As a last step open settings.h and make sure AUDIO_64KLANG2 is defined (and NO_A
 
 To integrate WaveSabre you first need to follow these steps:
 
-1. download the WaveSabre source code from here: https://github.com/thijskruithof/WaveSabre
+1. Download the WaveSabre source code from here: https://github.com/thijskruithof/WaveSabre
 2. Create a subfolder SqrMelon/Player/WaveSabre 
 3. Copy from the downloaded WaveSabre folder the WaveSabreCore folder and the WaveSabrePlayerLib folder (including all their subfolders) to SqrMelon/Player/WaveSabre/ 
 4. Add all the .cpp files from the `SqrMelon/Player/WaveSabre/WaveSabreCore/src/` and from `SqrMelon/Player/WaveSabre/WaveSabrePlayerLib/src/` to the WaveSabre filter in the Player project in VS
-5. You'll also need an actual soundtrack. A musician can make one with the WaveSabre VSTi plugins and use the WaveSabre Project Manager tool to generate a header file. Copy this head filer to SqrMelon/Player/WaveSabre/ and rename it to music.h.
-6. As a last step open settings.h and make sure AUDIO_WAVESABRE is defined (and NO_AUDIO isn't and none of the other AUDIO_XXXXX are either.).
+5. Remove WavWriter.cpp from the WaveSabre filter (we don't need support for that).
+6. You'll also need an actual soundtrack. A musician can make one with the WaveSabre VSTi plugins and use the WaveSabre Project Manager tool to generate a header file. Copy this head filer to SqrMelon/Player/WaveSabre/ and rename it to music.h.
+7. As a last step open settings.h and make sure AUDIO_WAVESABRE is defined (and NO_AUDIO isn't and none of the other AUDIO_XXXXX are either.).
 
 
 ## Executable compression
