@@ -183,7 +183,7 @@ struct Mat44
 };
 
 float uV[16] = { 0 };
-float uFrustum[16];
+float uFrustum[16] = { 0 };
 float animData[sizeof(float) * 4 * gAnimEntriesMax];
 
 

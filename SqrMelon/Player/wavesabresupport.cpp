@@ -22,8 +22,21 @@ extern "C" void* __cdecl memcpy(void* dst, const void* src, size_t count) { coun
 #pragma function(memset)
 extern "C" void* __cdecl memset(void *dest, int c, size_t count) { char *bytes = (char *)dest; while (count--) { *bytes++ = (char)c; } return dest; }
 
+
+
 //https://hero.handmade.network/forums/code-discussion/t/94-guide_-_how_to_avoid_c_c++_runtime_on_windows
 //https://gist.github.com/mmozeiko/6a365d6c483fc721b63a#file-win32_crt_math-cpp
+
+
+extern "C" __declspec(naked) void __cdecl _ftol2_sse()
+{
+    __asm
+    {
+        fistp dword ptr[esp - 4]
+        mov   eax, [esp - 4]
+        ret
+    }
+}
 
 extern "C" __declspec(naked) void __cdecl _allshl(void)
 {
@@ -224,12 +237,46 @@ extern "C" __declspec(naked) void __cdecl _allmul()
 #undef B
 }
 
+extern "C" __declspec(naked) void __cdecl _aullshr()
+{
+    __asm
+    {
+        cmp     cl, 64
+        jae     short RETZERO
+        ;
+        ; Handle shifts of between 0 and 31 bits
+            ;
+        cmp     cl, 32
+            jae     short MORE32
+            shrd    eax, edx, cl
+            shr     edx, cl
+            ret
+            ;
+        ; Handle shifts of between 32 and 63 bits
+            ;
+    MORE32:
+        mov     eax, edx
+            xor     edx, edx
+            and     cl, 31
+            shr     eax, cl
+            ret
+            ;
+        ; return 0 in edx : eax
+            ;
+    RETZERO:
+        xor     eax, eax
+            xor     edx, edx
+            ret
+    }
+}
+
 
 
 void __cdecl operator delete(void* p, unsigned int x) { HeapFree(GetProcessHeap(), 0, p); }
 void __cdecl operator delete(void* p) { HeapFree(GetProcessHeap(), 0, p); }
 void __cdecl operator delete[](void* p) { HeapFree(GetProcessHeap(), 0, p); }
 void __cdecl operator delete[](void* p, unsigned int x) { HeapFree(GetProcessHeap(), 0, p); }
+
 
 // https://docs.microsoft.com/nl-nl/cpp/c-runtime-library/internal-crt-globals-and-functions?view=vs-2017
 // https://github.com/reactos/wine/blob/master/dlls/msvcrt/math.c
@@ -238,11 +285,12 @@ extern "C" __declspec(naked) void __cdecl _libm_sse2_sin_precise()
     double d;
     __asm 
     { 
-        movq xmm0, d 
+        movq d, xmm0
         fld d
         fsin
         fstp d
-        movq d, xmm0
+        movq xmm0, d
+        ret
     }
 }
 
@@ -251,11 +299,12 @@ extern "C" __declspec(naked) void __cdecl _libm_sse2_cos_precise()
     double d;
     __asm
     {
-        movq xmm0, d
+        movq d, xmm0
         fld d
         fcos
         fstp d
-        movq d, xmm0
+        movq xmm0, d
+        ret
     }
 }
 
@@ -264,14 +313,15 @@ extern "C" __declspec(naked) void __cdecl _libm_sse2_tan_precise()
     double d;
     __asm
     {
-        movq xmm0, d
+        movq d, xmm0
         fld d
         fsin     
         fld d
         fcos                    // ST1=sin, ST0=cos
         fdivp ST(1),ST(0)       // ST0 = sin/cos
         fstp d  
-        movq d, xmm0
+        movq xmm0, d
+        ret
     }
 }
 
@@ -280,11 +330,12 @@ extern "C" __declspec(naked) void __cdecl _libm_sse2_sqrt_precise()
     double d;
     __asm
     {
-        movq xmm0, d
+        movq d, xmm0
         fld d
         fsqrt
         fstp d
-        movq d, xmm0
+        movq xmm0, d
+        ret
     }
 }
 
@@ -295,8 +346,8 @@ extern "C" __declspec(naked) void __cdecl _libm_sse2_pow_precise()
     double d1,d2;
     __asm
     {
-        movq xmm0, d1
-        movq xmm1, d2
+        movq d1, xmm0
+        movq d2, xmm1
 
         fld d2
         fld d1
@@ -317,7 +368,8 @@ extern "C" __declspec(naked) void __cdecl _libm_sse2_pow_precise()
         fstp  st(1)     // adjust stack
 
         fstp d1
-        movq d1, xmm0
+        movq xmm0, d1
+        ret
     }
 }
 
@@ -330,14 +382,16 @@ extern "C" __declspec(naked) void __cdecl _libm_sse2_log10_precise()
     double d;
     __asm
     {
-        movq xmm0, d
+        movq d, xmm0
 
         fldlg2
         fld   d
         fyl2x
 
         fstp d
-        movq d, xmm0
+        movq xmm0, d
+
+        ret
     }
 }
 
