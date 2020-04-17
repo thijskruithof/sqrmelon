@@ -224,7 +224,7 @@ void bindUserImages(unsigned int program)
 #endif
 }
 
-bool evalDemo(float seconds, float beats, int width, int height, float deltaSeconds, bool isPrecalcStep = false)
+bool evalDemo(float seconds, float beats, int width, int height, bool isPrecalcStep = false)
 {
 	float localBeats;
 	int shot = shotAtBeats(beats, localBeats);
@@ -564,7 +564,6 @@ void main()
 	TickLoader(width, height);
 	// end loading process
 
-	float deltaSeconds, prevSeconds = 0.0f;
 	MSG msg;
 	do
 	{
@@ -597,9 +596,7 @@ void main()
 		float seconds = (float)player.GetSongPos();
 #endif
 
-		deltaSeconds = seconds - prevSeconds;
-		prevSeconds = seconds;
-		if (!evalDemo(seconds, seconds * ((float)BPM / 60.0f), width, height, deltaSeconds))
+		if (!evalDemo(seconds, seconds * ((float)BPM / 60.0f), width, height))
 		{
 			break;
 		}
