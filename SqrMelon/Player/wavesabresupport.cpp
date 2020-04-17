@@ -280,23 +280,26 @@ void __cdecl operator delete[](void* p, unsigned int x) { HeapFree(GetProcessHea
 
 // https://docs.microsoft.com/nl-nl/cpp/c-runtime-library/internal-crt-globals-and-functions?view=vs-2017
 // https://github.com/reactos/wine/blob/master/dlls/msvcrt/math.c
-extern "C" __declspec(naked) void __cdecl _libm_sse2_sin_precise()
+
+
+extern "C" void __cdecl _libm_sse2_sin_precise()
 {
     double d;
-    __asm 
-    { 
+
+    __asm
+    {
         movq d, xmm0
         fld d
         fsin
         fstp d
         movq xmm0, d
-        ret
     }
 }
 
-extern "C" __declspec(naked) void __cdecl _libm_sse2_cos_precise()
+extern "C" void __cdecl _libm_sse2_cos_precise()
 {
     double d;
+
     __asm
     {
         movq d, xmm0
@@ -304,30 +307,30 @@ extern "C" __declspec(naked) void __cdecl _libm_sse2_cos_precise()
         fcos
         fstp d
         movq xmm0, d
-        ret
     }
 }
 
-extern "C" __declspec(naked) void __cdecl _libm_sse2_tan_precise()
+extern "C" void __cdecl _libm_sse2_tan_precise()
 {
     double d;
+
     __asm
-    {
+    { 
         movq d, xmm0
         fld d
-        fsin     
+        fsin
         fld d
         fcos                    // ST1=sin, ST0=cos
-        fdivp ST(1),ST(0)       // ST0 = sin/cos
-        fstp d  
+        fdivp ST(1), ST(0)       // ST0 = sin/cos
+        fstp d
         movq xmm0, d
-        ret
     }
 }
 
-extern "C" __declspec(naked) void __cdecl _libm_sse2_sqrt_precise()
+extern "C" void __cdecl _libm_sse2_sqrt_precise()
 {
     double d;
+
     __asm
     {
         movq d, xmm0
@@ -335,15 +338,14 @@ extern "C" __declspec(naked) void __cdecl _libm_sse2_sqrt_precise()
         fsqrt
         fstp d
         movq xmm0, d
-        ret
     }
 }
 
-extern "C" __declspec(naked) void __cdecl _libm_sse2_pow_precise()
+extern "C" void __cdecl _libm_sse2_pow_precise()
 {
     // d1 = pow(d1,d2)
 
-    double d1,d2;
+    double d1, d2;
     __asm
     {
         movq d1, xmm0
@@ -369,13 +371,12 @@ extern "C" __declspec(naked) void __cdecl _libm_sse2_pow_precise()
 
         fstp d1
         movq xmm0, d1
-        ret
     }
 }
 
 
 
-extern "C" __declspec(naked) void __cdecl _libm_sse2_log10_precise()
+extern "C" void __cdecl _libm_sse2_log10_precise()
 {
     // d = log10(d)
 
@@ -390,10 +391,9 @@ extern "C" __declspec(naked) void __cdecl _libm_sse2_log10_precise()
 
         fstp d
         movq xmm0, d
-
-        ret
     }
 }
+
 
 
 #endif // AUDIO_WAVESABRE
