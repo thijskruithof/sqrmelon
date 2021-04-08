@@ -39,8 +39,8 @@ class Primitives:
         self._numVertices[PrimitiveType.GRID] = (numGridLines*2+1)*4
 
         # Construct a unit cube [-1,-1,-1] .. [1,1,1]
-        for a in xrange(-1, 2, 2):
-            for b in xrange(-1, 2, 2):
+        for a in range(-1, 2, 2):
+            for b in range(-1, 2, 2):
                 self._vertex_data.extend([-1, a, b])
                 self._vertex_data.extend([1, a, b])
                 self._vertex_data.extend([a, -1, b])
@@ -77,7 +77,7 @@ class Primitives:
         # Construct a circle in YZ plane
         numCircleSegments = 64
         prevCirclePos = []
-        for i in xrange(0, numCircleSegments+1):
+        for i in range(0, numCircleSegments+1):
             phi = ((2.0 * math.pi) / numCircleSegments)*i
             circlePos = [0, math.cos(phi), math.sin(phi)]
             if i > 0:
@@ -460,7 +460,7 @@ class Modeler(QGLWidget):
         # Pan/Rotate/Zoom?
         if modifiers == Qt.AltModifier:
             self._adjustingCamera = True
-            self._adjustCameraStartMousePos = mathutil.Vec2(mouseEvent.posF().x(), mouseEvent.posF().y())
+            self._adjustCameraStartMousePos = mathutil.Vec2(mouseEvent.localPos().x(), mouseEvent.localPos().y())
             self._adjustCameraStartCamera = self._cameraTransform
 
             # Panning?
@@ -479,12 +479,12 @@ class Modeler(QGLWidget):
 
             # Did we click on the modifier, if its visible?
             if self._modifierMode != ModifierMode.SELECT and self._isModifierVisible():
-                axis = self._getMouseOnModifierAxis(mouseEvent.posF().x(), mouseEvent.posF().y())
+                axis = self._getMouseOnModifierAxis(mouseEvent.localPos().x(), mouseEvent.localPos().y())
 
                 if axis != ModifierAxis.NONE:
                     clickHandled = True
                     self._modifierAxis = axis
-                    self._modifyStartMouseScreenPos = self._convertMousePosToScreenPos(mouseEvent.posF().x(), mouseEvent.posF().y())
+                    self._modifyStartMouseScreenPos = self._convertMousePosToScreenPos(mouseEvent.localPos().x(), mouseEvent.localPos().y())
                     self._modifyStartModelTranslation = self._currentModelNode.translation
                     self._modifyStartModelRotation = self._currentModelNode.rotation
                     self._modifyStartModelSize = self._currentModelNode.size
@@ -493,7 +493,7 @@ class Modeler(QGLWidget):
             # Did we otherwise click on a node of the model?
             if not self._currentModel is None and not clickHandled:
                 clickHandled = True
-                newSelectedNode = self._getMouseOnModelNode(mouseEvent.posF().x(), mouseEvent.posF().y())
+                newSelectedNode = self._getMouseOnModelNode(mouseEvent.localPos().x(), mouseEvent.localPos().y())
                 self.selectedModelNodeChanged.emit(self._currentModel, newSelectedNode)
 
 
@@ -541,12 +541,12 @@ class Modeler(QGLWidget):
             # Panning?
             if self._adjustCameraMode == 0:
                 panSpeed = 0.025
-                deltaMouse = mathutil.Vec2(mouseEvent.posF().x(), mouseEvent.posF().y()) - self._adjustCameraStartMousePos
+                deltaMouse = mathutil.Vec2(mouseEvent.localPos().x(), mouseEvent.localPos().y()) - self._adjustCameraStartMousePos
                 self._cameraTransform = cgmath.Mat44.translate(deltaMouse[0] * -panSpeed, deltaMouse[1] * panSpeed, 0) * self._adjustCameraStartCamera
             # Rotating?
             elif self._adjustCameraMode == 1:
                 rotateSpeed = 0.010
-                deltaMouse = mathutil.Vec2(mouseEvent.posF().x(), mouseEvent.posF().y()) - self._adjustCameraStartMousePos
+                deltaMouse = mathutil.Vec2(mouseEvent.localPos().x(), mouseEvent.localPos().y()) - self._adjustCameraStartMousePos
 
                 # Remove position
                 self._cameraTransform = cgmath.Mat44(
@@ -568,14 +568,14 @@ class Modeler(QGLWidget):
             # Zooming?
             elif self._adjustCameraMode == 2:
                 zoomSpeed = 0.025
-                deltaMouse = mathutil.Vec2(mouseEvent.posF().x(), mouseEvent.posF().y()) - self._adjustCameraStartMousePos
+                deltaMouse = mathutil.Vec2(mouseEvent.localPos().x(), mouseEvent.localPos().y()) - self._adjustCameraStartMousePos
                 self._cameraTransform = cgmath.Mat44.translate(0, 0, deltaMouse[1] * zoomSpeed) * self._adjustCameraStartCamera
 
         # Dragging?
         else:
             # Dragging a translation modifier axis?
             if self._modifierMode == ModifierMode.TRANSLATE and self._modifierAxis != ModifierAxis.NONE:
-                deltaMouse = self._convertMousePosToScreenPos(mouseEvent.posF().x(), mouseEvent.posF().y()) - self._modifyStartMouseScreenPos
+                deltaMouse = self._convertMousePosToScreenPos(mouseEvent.localPos().x(), mouseEvent.localPos().y()) - self._modifyStartMouseScreenPos
                 if self._modifierAxis == ModifierAxis.X:
                     axisDir = cgmath.Vec3(1,0,0)
                 elif self._modifierAxis == ModifierAxis.Y:
@@ -590,7 +590,7 @@ class Modeler(QGLWidget):
 
             # Dragging a rotation modifier axis?
             if self._modifierMode == ModifierMode.ROTATE and self._modifierAxis != ModifierAxis.NONE:
-                deltaMouse = self._convertMousePosToScreenPos(mouseEvent.posF().x(), mouseEvent.posF().y()) - self._modifyStartMouseScreenPos
+                deltaMouse = self._convertMousePosToScreenPos(mouseEvent.localPos().x(), mouseEvent.localPos().y()) - self._modifyStartMouseScreenPos
                 amount = deltaMouse[0]
 
                 if self._modifierAxis == ModifierAxis.X:
@@ -604,7 +604,7 @@ class Modeler(QGLWidget):
 
             # Dragging a scale modifier axis?
             elif self._modifierMode == ModifierMode.SCALE_NONUNIFORM and self._modifierAxis != ModifierAxis.NONE:
-                deltaMouse = self._convertMousePosToScreenPos(mouseEvent.posF().x(), mouseEvent.posF().y()) - self._modifyStartMouseScreenPos
+                deltaMouse = self._convertMousePosToScreenPos(mouseEvent.localPos().x(), mouseEvent.localPos().y()) - self._modifyStartMouseScreenPos
                 if self._modifierAxis == ModifierAxis.X:
                     axisDir = cgmath.Vec3(1,0,0)
                 elif self._modifierAxis == ModifierAxis.Y:

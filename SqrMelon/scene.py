@@ -697,9 +697,9 @@ class Scene(object):
         if isProfiling:
             self.profileLog = []
             glFinish()
-            startT = time.clock()
+            startT = time.perf_counter()
         else:
-            startT = time.clock()
+            startT = time.perf_counter()
 
         maxActiveInputs = 0
         for i, passData in enumerate(self.passes):
@@ -729,7 +729,7 @@ class Scene(object):
             # make sure we don't take into account previous GL calls when measuring time
             if isProfiling:
                 glFinish()
-                beforeT = time.clock()
+                beforeT = time.perf_counter()
 
             self.frameBuffers[passData.targetBufferId].use()
 
@@ -788,7 +788,7 @@ class Scene(object):
                         texture3Ds[j].original = buffer
 
                     # Render multiple slices
-                    for slice in xrange(0, self.passes[i].resolution[0]):
+                    for slice in range(0, self.passes[i].resolution[0]):
                         # Set slice shader var
                         sliceUni = glGetUniformLocation(self.shaders[i], "uSlice")
                         glUniform1f(sliceUni, float(slice))
@@ -828,7 +828,7 @@ class Scene(object):
             # make sure all graphics calls are finished processing in GL land before we measure time
             if isProfiling:
                 glFinish()
-                afterT = time.clock()
+                afterT = time.perf_counter()
                 self.profileLog.append((passData.name or str(i), afterT - beforeT))
 
             if self._debugPassId is not None and i == self._debugPassId[0]:
@@ -838,7 +838,7 @@ class Scene(object):
         if isProfiling:
             glFinish()
         # inform the profiler a new result is ready
-        endT = time.clock()
+        endT = time.perf_counter()
         self.profileInfoChanged.emit(endT - startT)
 
         return maxActiveInputs

@@ -49,5 +49,5 @@ def vec3ToXmlAttrib(vec3):
     return "%f,%f,%f" % (vec3[0], vec3[1], vec3[2])
 
 def xmlAttribToVec3(attrib):
-    vals = map(float, attrib.split(','))
+    vals = list(map(float, attrib.split(',')))
     return cgmath.Vec3(vals[0], vals[1], vals[2])
