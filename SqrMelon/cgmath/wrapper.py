@@ -110,6 +110,7 @@ def prepare():
     _dllHandle.Vector_Dot.argtypes = (ctypes.c_void_p, ctypes.c_void_p)
     _dllHandle.Vector_Cross.argtypes = (ctypes.c_void_p, ctypes.c_void_p)
     _dllHandle.Vector_Normalized.argtypes = (ctypes.c_void_p,)
+    _dllHandle.Vector_Copy.argtypes = (ctypes.c_void_p)
 
     _dllHandle.Vector_Neg.restype = ctypes.c_void_p
     _dllHandle.Vector_Sub.restype = ctypes.c_void_p
@@ -131,6 +132,7 @@ def prepare():
     _dllHandle.Vector_Dot.restype = ctypes.c_float
     _dllHandle.Vector_Cross.restype = ctypes.c_void_p
     _dllHandle.Vector_Normalized.restype = ctypes.c_void_p
+    _dllHandle.Vector_Copy.restype = ctypes.c_void_p
 
     _dllHandle.Mat44_Row.argtypes = (ctypes.c_void_p, ctypes.c_int)
     _dllHandle.Mat44_MultiplyVector.argtypes = (ctypes.c_void_p, ctypes.c_void_p)
