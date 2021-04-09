@@ -21,8 +21,11 @@ def Mat44_MultiplyVector(mat, vec):
     m1 = Vec4(Mat44_Row(mat, 1)) * vec[1]
     m2 = Vec4(Mat44_Row(mat, 2)) * vec[2]
     m3 = Vec4(Mat44_Row(mat, 3)) * vec[3]
-    return m0 + m1 + m2 + m3
-
+    result = m0 + m1 + m2 + m3
+    if isinstance(vec, Vec3):
+        return Vec3(result._data)
+    else:
+        return result
 
 def Mat44_IMultiply(ioData, b):
     b0 = Mat44_Row(b, 0)

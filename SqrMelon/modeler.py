@@ -49,7 +49,7 @@ class Primitives:
                 self._vertex_data.extend([a, b, 1])
 
         self._firstVertexIndex[PrimitiveType.CUBE] = self._firstVertexIndex[PrimitiveType.GRID] + self._numVertices[PrimitiveType.GRID]
-        self._numVertices[PrimitiveType.CUBE] = len(self._vertex_data)/3 - self._firstVertexIndex[PrimitiveType.CUBE]
+        self._numVertices[PrimitiveType.CUBE] = len(self._vertex_data)//3 - self._firstVertexIndex[PrimitiveType.CUBE]
 
         # Construct an arrow (on 1,0,0 axis)
         arrowTipLen = 0.05
@@ -66,13 +66,13 @@ class Primitives:
         self._vertex_data.extend([1, 0, 0])
 
         self._firstVertexIndex[PrimitiveType.ARROW] = self._firstVertexIndex[PrimitiveType.CUBE] + self._numVertices[PrimitiveType.CUBE]
-        self._numVertices[PrimitiveType.ARROW] = len(self._vertex_data)/3 - self._firstVertexIndex[PrimitiveType.ARROW]
+        self._numVertices[PrimitiveType.ARROW] = len(self._vertex_data)//3 - self._firstVertexIndex[PrimitiveType.ARROW]
 
         # Construct a single line (on 1,0,0 axis)
         self._vertex_data.extend([0, 0, 0])
         self._vertex_data.extend([1, 0, 0])
         self._firstVertexIndex[PrimitiveType.LINE] = self._firstVertexIndex[PrimitiveType.ARROW] + self._numVertices[PrimitiveType.ARROW]
-        self._numVertices[PrimitiveType.LINE] = len(self._vertex_data)/3 - self._firstVertexIndex[PrimitiveType.LINE]
+        self._numVertices[PrimitiveType.LINE] = len(self._vertex_data)//3 - self._firstVertexIndex[PrimitiveType.LINE]
 
         # Construct a circle in YZ plane
         numCircleSegments = 64
@@ -85,7 +85,7 @@ class Primitives:
                 self._vertex_data.extend(circlePos)
             prevCirclePos = circlePos
         self._firstVertexIndex[PrimitiveType.CIRCLE] = self._firstVertexIndex[PrimitiveType.LINE] + self._numVertices[PrimitiveType.LINE]
-        self._numVertices[PrimitiveType.CIRCLE] = len(self._vertex_data)/3 - self._firstVertexIndex[PrimitiveType.CIRCLE]
+        self._numVertices[PrimitiveType.CIRCLE] = len(self._vertex_data)//3 - self._firstVertexIndex[PrimitiveType.CIRCLE]
 
 
 
@@ -129,7 +129,7 @@ class Primitives:
 
     def isMouseOn(self, primitiveType, mvp, mouseScreenPos,  minMouseDistSq):
         firstVertexIndex = self._firstVertexIndex[primitiveType]
-        for vertexIndex in xrange(firstVertexIndex, firstVertexIndex+self._numVertices[primitiveType], 2):
+        for vertexIndex in range(firstVertexIndex, firstVertexIndex+self._numVertices[primitiveType], 2):
             if self._getSqDistanceToLine(mvp, mouseScreenPos, vertexIndex, vertexIndex+1) <= minMouseDistSq:
                 return True
         return False
@@ -297,7 +297,7 @@ class Modeler(QGLWidget):
 
         # Draw nodes
         if not self._currentModel is None:
-            glLineWidth(1.2)
+            # glLineWidth(2)
 
             # Put current model node at the end of the list
             nodes = list(self._currentModel.nodes)
@@ -725,7 +725,7 @@ class Modeler(QGLWidget):
         else:
             self.selectedModelNodeChanged.emit(None, None)
 
-        ct = map(float, xMod.attrib['CameraTransform'].split(','))
+        ct = list(map(float, xMod.attrib['CameraTransform'].split(',')))
         self._cameraTransform = cgmath.Mat44(ct[0],ct[1],ct[2],ct[3],ct[4],ct[5],ct[6],ct[7],ct[8],ct[9],ct[10],ct[11],ct[12],ct[13],ct[14],ct[15])
 
         self.repaint()
