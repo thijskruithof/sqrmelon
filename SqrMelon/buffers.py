@@ -4,6 +4,7 @@ Utility that wraps OpenGL textures, frame buffers and render buffers.
 from pycompat import *
 import contextlib
 from OpenGL.GL import *
+from qtutil import *
 
 
 class Texture(object):
@@ -14,95 +15,42 @@ class Texture(object):
 
     Call use() to bind the texture with Gl.
     """
-    R8 = GL_R8, GL_RED, GL_UNSIGNED_BYTE
-    R8_SNORM = GL_R8_SNORM, GL_RED, GL_BYTE
-    R16F = GL_R16F, GL_RED, GL_HALF_FLOAT, GL_FLOAT
-    R32F = GL_R32F, GL_RED, GL_FLOAT
-    R8UI = GL_R8UI, GL_RED_INTEGER, GL_UNSIGNED_BYTE
-    R8I = GL_R8I, GL_RED_INTEGER, GL_BYTE
-    R16UI = GL_R16UI, GL_RED_INTEGER, GL_UNSIGNED_SHORT
-    R16I = GL_R16I, GL_RED_INTEGER, GL_SHORT
-    R32UI = GL_R32UI, GL_RED_INTEGER, GL_UNSIGNED_INT
-    R32I = GL_R32I, GL_RED_INTEGER, GL_INT
-    RG8 = GL_RG8, GL_RG, GL_UNSIGNED_BYTE
-    RG8_SNORM = GL_RG8_SNORM, GL_RG, GL_BYTE
-    RG16F = GL_RG16F, GL_RG, GL_HALF_FLOAT, GL_FLOAT
-    RG32F = GL_RG32F, GL_RG, GL_FLOAT
-    RG8UI = GL_RG8UI, GL_RG_INTEGER, GL_UNSIGNED_BYTE
-    RG8I = GL_RG8I, GL_RG_INTEGER, GL_BYTE
-    RG16UI = GL_RG16UI, GL_RG_INTEGER, GL_UNSIGNED_SHORT
-    RG16I = GL_RG16I, GL_RG_INTEGER, GL_SHORT
-    RG32UI = GL_RG32UI, GL_RG_INTEGER, GL_UNSIGNED_INT
-    RG32I = GL_RG32I, GL_RG_INTEGER, GL_INT
-    RGB8 = GL_RGB8, GL_RGB, GL_UNSIGNED_BYTE
-    SRGB8 = GL_SRGB8, GL_RGB, GL_UNSIGNED_BYTE
-    RGB565 = GL_RGB565, GL_RGB, GL_UNSIGNED_BYTE, GL_UNSIGNED_SHORT_5_6_5
-    RGB8_SNORM = GL_RGB8_SNORM, GL_RGB, GL_BYTE
-    R11F_G11F_B10F = GL_R11F_G11F_B10F, GL_RGB, GL_UNSIGNED_INT_10F_11F_11F_REV, GL_HALF_FLOAT, GL_FLOAT
-    RGB9_E5 = GL_RGB9_E5, GL_RGB, GL_UNSIGNED_INT_5_9_9_9_REV, GL_HALF_FLOAT, GL_FLOAT
-    RGB16F = GL_RGB16F, GL_RGB, GL_HALF_FLOAT, GL_FLOAT
-    RGB32F = GL_RGB32F, GL_RGB, GL_FLOAT
-    RGB8UI = GL_RGB8UI, GL_RGB_INTEGER, GL_UNSIGNED_BYTE
-    RGB8I = GL_RGB8I, GL_RGB_INTEGER, GL_BYTE
-    RGB16UI = GL_RGB16UI, GL_RGB_INTEGER, GL_UNSIGNED_SHORT
-    RGB16I = GL_RGB16I, GL_RGB_INTEGER, GL_SHORT
-    RGB32UI = GL_RGB32UI, GL_RGB_INTEGER, GL_UNSIGNED_INT
-    RGB32I = GL_RGB32I, GL_RGB_INTEGER, GL_INT
-    RGBA8 = GL_RGBA8, GL_RGBA, GL_UNSIGNED_BYTE
-    SRGB8_ALPHA8 = GL_SRGB8_ALPHA8, GL_RGBA, GL_UNSIGNED_BYTE
-    RGBA8_SNORM = GL_RGBA8_SNORM, GL_RGBA, GL_BYTE
-    RGB5_A1 = GL_RGB5_A1, GL_RGBA, GL_UNSIGNED_BYTE, GL_UNSIGNED_SHORT_5_5_5_1, GL_UNSIGNED_INT_2_10_10_10_REV
-    RGBA4 = GL_RGBA4, GL_RGBA, GL_UNSIGNED_BYTE, GL_UNSIGNED_SHORT_4_4_4_4
-    RGB10_A2 = GL_RGB10_A2, GL_RGBA, GL_UNSIGNED_INT_2_10_10_10_REV
-    RGBA16F = GL_RGBA16F, GL_RGBA, GL_HALF_FLOAT, GL_FLOAT
-    RGBA32F = GL_RGBA32F, GL_RGBA, GL_FLOAT
-    RGBA8UI = GL_RGBA8UI, GL_RGBA_INTEGER, GL_UNSIGNED_BYTE
-    RGBA8I = GL_RGBA8I, GL_RGBA_INTEGER, GL_BYTE
-    RGB10_A2UI = GL_RGB10_A2UI, GL_RGBA_INTEGER, GL_UNSIGNED_INT_2_10_10_10_REV
-    RGBA16UI = GL_RGBA16UI, GL_RGBA_INTEGER, GL_UNSIGNED_SHORT
-    RGBA16I = GL_RGBA16I, GL_RGBA_INTEGER, GL_SHORT
-    RGBA32I = GL_RGBA32I, GL_RGBA_INTEGER, GL_INT
-    RGBA32UI = GL_RGBA32UI, GL_RGBA_INTEGER, GL_UNSIGNED_INT
-    DEPTH_COMPONENT16 = GL_DEPTH_COMPONENT16, GL_DEPTH_COMPONENT, GL_UNSIGNED_SHORT, GL_UNSIGNED_INT
-    DEPTH_COMPONENT24 = GL_DEPTH_COMPONENT24, GL_DEPTH_COMPONENT, GL_UNSIGNED_INT
-    DEPTH_COMPONENT32F = GL_DEPTH_COMPONENT32F, GL_DEPTH_COMPONENT, GL_FLOAT
-    DEPTH24_STENCIL8 = GL_DEPTH24_STENCIL8, GL_DEPTH_STENCIL, GL_UNSIGNED_INT_24_8
-    DEPTH32F_STENCIL8 = GL_DEPTH32F_STENCIL8, GL_DEPTH_STENCIL, GL_FLOAT_32_UNSIGNED_INT_24_8_REV
-    # common aliases
-    FLOAT_CHANNEL = GL_R32F, GL_RED, GL_FLOAT
-    FLOAT_COLOR = GL_RGBA32F, GL_RGBA, GL_FLOAT
-    FLOAT_DEPTH = GL_DEPTH_COMPONENT32F, GL_DEPTH_COMPONENT, GL_FLOAT
-    FLOAT_DEPTH_STENCIL = GL_DEPTH32F_STENCIL8, GL_DEPTH_STENCIL, GL_FLOAT_32_UNSIGNED_INT_24_8_REV
 
-    def __init__(self, channels, width, height, tile=True, data=None):
+    FORMAT_RGBA8_UNorm = QOpenGLTexture.RGBA8_UNorm
+    FORMAT_R32F = QOpenGLTexture.R32F
+    FORMAT_RGBA32F = QOpenGLTexture.RGBA32F
+    FORMAT_D32F = QOpenGLTexture.D32F
+
+
+    def __init__(self, format, width, height, tile=True, img=None):
         """
-        :param channels: One of the above static members describing the pixel format.
+        :param format: One of the above static members describing the pixel format.
         :param int width: Width in pixels
         :param int height: Height in pixels
         :param bool tile: Sets GL_CLAMP or GL_REPEAT accordingly.
-        :param void* data: Can pass any ctypes pointer to fill the buffer on the GPU. Used for direct data upload from e.g. QImage or heightfields.
+        :param QImage img: An image to upload to the texture. (Should be a QImage)
         """
         self._width = width
         self._height = height
 
-        self._id = glGenTextures(1)
-
-        self.use()
-        glTexImage2D(GL_TEXTURE_2D, 0, channels[0], width, height, 0, channels[1], channels[2], data)
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR)
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR)
-        if not tile:
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE)
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE)
+        if img is None:
+            self._tex = QOpenGLTexture(QOpenGLTexture.Target2D)
+            self._tex.setFormat(format)
+            self._tex.setSize(width, height, 1)
+            self._tex.allocateStorage()
         else:
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT)
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT)
+            self._tex = QOpenGLTexture(img, QOpenGLTexture.MipMapGeneration.GenerateMipMaps.DontGenerateMipMaps)
+
+        if not tile:
+            self._tex.setWrapMode(QOpenGLTexture.ClampToEdge)
+        else:
+            self._tex.setWrapMode(QOpenGLTexture.Repeat)
 
     def id(self):
-        return self._id
+        return self._tex.textureId()
 
     def use(self):
-        glBindTexture(GL_TEXTURE_2D, self._id)
+        self._tex.bind()
 
     def width(self):
         return self._width
@@ -134,6 +82,8 @@ class Texture(object):
 
 
 class Texture3D(object):
+    RGBA32F = GL_RGBA32F, GL_RGBA, GL_FLOAT
+
     def __init__(self, channels, resolution, tile=True, data=None):
         # for channels refer to the options in Texture
         self._width = resolution
@@ -174,6 +124,7 @@ class Texture3D(object):
 
 
 class Cubemap(object):
+
     def __init__(self, channels, size, contents=None):
         self.__size = size
         self.__id = glGenTextures(1)

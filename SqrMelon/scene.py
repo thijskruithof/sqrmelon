@@ -593,11 +593,14 @@ class Scene(object):
             else:
                 w, h = self.__w, self.__h
 
+            w = max(1, w)
+            h = max(1, h)
+
             self.frameBuffers.append(FrameBuffer(w, h))
-            self.frameBuffers[-1].initDepth(Texture(Texture.FLOAT_DEPTH, w, h))
+            self.frameBuffers[-1].initDepth(Texture(Texture.FORMAT_D32F, w, h))
             self.colorBuffers.append([])
             for j in range(value[0]):
-                self.colorBuffers[-1].append(Texture(Texture.RGBA32F, w, h, tile=value[3]))
+                self.colorBuffers[-1].append(Texture(Texture.FORMAT_RGBA32F, w, h, tile=value[3]))
                 self.frameBuffers[-1].addTexture(self.colorBuffers[-1][-1])
 
         self.__passDirtyState = [True] * len(self.passes)
@@ -784,7 +787,7 @@ class Scene(object):
                     # Set up 3d textures
                     texture3Ds = {}
                     for j, buffer in enumerate(buffers):
-                        texture3Ds[j] = Texture3D(Texture.RGBA32F, buffer.height(), True)
+                        texture3Ds[j] = Texture3D(Texture3D.RGBA32F, buffer.height(), True)
                         texture3Ds[j].original = buffer
 
                     # Render multiple slices

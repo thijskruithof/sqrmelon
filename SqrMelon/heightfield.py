@@ -21,7 +21,7 @@ def loadHeightfield(filePath):
     fd = os.open(filePath, os.O_RDWR | os.O_BINARY)
     try:
         ptr = (ctypes.c_float * (resolution * resolution)).from_buffer(mmap.mmap(fd, 0))
-        tex = Texture(Texture.R32F, resolution, resolution, tile=True, data=ptr)
+        tex = Texture(Texture.FORMAT_R32F, resolution, resolution, tile=True, data=ptr)
     finally:
         os.close(fd)
     return tex

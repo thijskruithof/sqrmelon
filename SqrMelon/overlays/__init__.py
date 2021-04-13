@@ -12,15 +12,8 @@ import sys
 
 def loadImage(filePath, tile=True):
     assert isinstance(filePath, FilePath)
-    texId = glGenTextures(1)
-    glBindTexture(GL_TEXTURE_2D, texId)
-    glPixelStorei(GL_UNPACK_ALIGNMENT, 1)
-    tex = QGLWidget.convertToGLFormat(QImage(filePath))
-    if sys.version_info.major == 3:
-        return Texture(Texture.RGBA8, tex.width(), tex.height(), tile, tex.bits())
-    else:
-        return Texture(Texture.RGBA8, tex.width(), tex.height(), tile, ctypes.c_void_p(int(tex.bits())))
-
+    img = QImage(filePath)
+    return Texture(Texture.FORMAT_RGBA8_UNorm, img.width(), img.height(), tile, img)
 
 class Overlays(QWidget):
     _overlayDir = FilePath(__file__).abs().parent()
