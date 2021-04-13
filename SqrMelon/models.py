@@ -175,9 +175,9 @@ class ModelNodeBox(ModelNodeBase):
     def getBounds(self):
         modelTransform = self.getModelTransform()
         bounds = Bounds()
-        for z in xrange(-1,2,2):
-            for y in xrange(-1, 2, 2):
-                for x in xrange(-1, 2, 2):
+        for z in range(-1,2,2):
+            for y in range(-1, 2, 2):
+                for x in range(-1, 2, 2):
                     p = cgmath.Vec4(x, y, z, 1)
                     p = modelTransform * p
                     bounds.add(cgmath.Vec3(p[0],p[1],p[2]))
