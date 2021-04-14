@@ -124,7 +124,7 @@ class VectorBase(object):
             return self.__class__([self._data[i] * other[i] for i in range(4)])
         return self.__class__([self._data[i] * other for i in range(4)])
 
-    def __div__(self, other):
+    def __truediv__(self, other):
         if isinstance(other, self.__class__):
             return self.__class__([self._data[i] / other[i] for i in range(4)])
         return self.__class__([self._data[i] / other for i in range(4)])
@@ -136,7 +136,6 @@ class VectorBase(object):
         else:
             for i in range(4):
                 self._data[i] += other
-        self._data = None
         return self
 
     def __isub__(self, other):
@@ -146,7 +145,6 @@ class VectorBase(object):
         else:
             for i in range(4):
                 self._data[i] -= other
-        self._data = None
         return self
 
     def __imul__(self, other):
@@ -159,17 +157,15 @@ class VectorBase(object):
         else:
             for i in range(4):
                 self._data[i] *= other
-        self._data = None
         return self
 
-    def __idiv__(self, other):
+    def __itruediv__(self, other):
         if isinstance(other, self.__class__):
             for i in range(4):
                 self._data[i] /= other[i]
         else:
             for i in range(4):
                 self._data[i] /= other
-        self._data = None
         return self
 
 
@@ -292,10 +288,10 @@ class Mat44(object):
                 self._data[i] -= other
         return self
 
-    def __div__(self, other):
+    def __truediv__(self, other):
         return Mat44([self._data[i] / other for i in range(16)])
 
-    def __idiv__(self, other):
+    def __itruediv__(self, other):
         for i in range(16):
             self._data[i] /= other
         return self
