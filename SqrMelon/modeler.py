@@ -352,7 +352,7 @@ class Modeler(QGLWidget):
 
     # Draw a modifier, such as a translation gizmo.
     def _drawModifier(self):
-        glLineWidth(1.5)
+        # glLineWidth(1.5)
 
         if self._modifierMode == ModifierMode.SELECT:
             return
