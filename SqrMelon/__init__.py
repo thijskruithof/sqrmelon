@@ -521,4 +521,4 @@ if __name__ == '__main__':
     try:
         run()
     except Exception as e:
-        QMessageBox.critical(None, 'Unhandled exception', traceback.format_exc(e))
+        QMessageBox.critical(None, 'Unhandled exception', traceback.format_exc())
