@@ -18,9 +18,9 @@ def prepare():
     if _dllHandle is not None:
         return
     if platform.architecture()[0] == '64bit':
-        dllPath = os.path.join(os.path.dirname(os.path.abspath(__file__)), r'cgmathx64.dll')
+        dllPath = os.path.join(os.path.dirname(os.path.abspath(__file__)), r'cgmathx64d.dll')
     else:
-        dllPath = os.path.join(os.path.dirname(os.path.abspath(__file__)), r'cgmathx86.dll')
+        dllPath = os.path.join(os.path.dirname(os.path.abspath(__file__)), r'cgmathx86d.dll')
     _dllHandle = ctypes.CDLL(dllPath)
     _dllHandle.Mat44_Mat44.argtypes = tuple()
     _dllHandle.Mat44_Delete.argtypes = (ctypes.c_void_p,)
@@ -157,22 +157,27 @@ class VectorBase(object):
         self._data = None
         if args:
             if isinstance(args[0], (long, ctypes.c_voidp, ctypes.c_void_p, ctypes.c_char_p, ctypes.c_wchar_p, ctypes.c_long)):
+                assert len(args) == 1, 'Too many arguments provided for constructor of Vector! Perhaps the type of the arguments is wrong?'
                 self._ptr = args[0]
+                assert self._ptr != 0
             elif isinstance(args[0], self.__class__):
                 self._ptr = _dllHandle.Vector_Copy(args[0]._ptr)
+                assert self._ptr != 0
             else:
                 assert len(
                     args) == self.__class__._size and self.__class__._size <= 4, 'Attempting to constructor vector of size {} with either wrong number of arguments {} or beyond maximum size 4.'.format(
                     self.__class__._size, args)
                 data = (ctypes.c_float * 4)(*(list(args) + [0] * (4 - self.__class__._size)))
                 self._ptr = _dllHandle.Vector_FromFloat4(data)
+                assert self._ptr != 0
         else:
             self._ptr = _dllHandle.Vector_Vector()
+            assert self._ptr != 0
 
     def _fetchData(self):
         if self._data is None:
             self._data = (ctypes.c_float * 4)()
-            _dllHandle.Vector_Data(self._ptr, ctypes.cast(self._data, ctypes.POINTER(ctypes.c_float)))
+            _dllHandle.Vector_Data(self._ptr, self._data)
         return self._data
 
     def __getitem__(self, slice):

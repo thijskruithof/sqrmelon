@@ -44,8 +44,8 @@ class ModelNodeBase(object):
     """
     def __init__(self):
         self._name = self.__class__.__name__[9:]
-        self._translation = cgmath.Vec3(0,0,0)
-        self._rotation = cgmath.Vec3(0,0,0)
+        self._translation = cgmath.Vec3(0.0,0.0,0.0)
+        self._rotation = cgmath.Vec3(0.0,0.0,0.0)
         self._scale = 1.0
         self._model = None
         self._subtractive = False
@@ -143,7 +143,7 @@ class ModelNodeBox(ModelNodeBase):
     """
     def __init__(self):
         super(ModelNodeBox, self).__init__()
-        self._size = cgmath.Vec3(1,1,1)
+        self._size = cgmath.Vec3(1.0,1.0,1.0)
 
     def duplicate(self, newModel=None):
         dupe = super(ModelNodeBox, self).duplicate(newModel)
