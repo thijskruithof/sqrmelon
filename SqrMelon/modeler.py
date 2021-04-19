@@ -41,12 +41,12 @@ class Primitives:
         # Construct a unit cube [-1,-1,-1] .. [1,1,1]
         for a in range(-1, 2, 2):
             for b in range(-1, 2, 2):
-                self._vertex_data.extend([-1, a, b])
-                self._vertex_data.extend([1, a, b])
-                self._vertex_data.extend([a, -1, b])
-                self._vertex_data.extend([a, 1, b])
-                self._vertex_data.extend([a, b, -1])
-                self._vertex_data.extend([a, b, 1])
+                self._vertex_data.extend([-1.0, float(a), float(b)])
+                self._vertex_data.extend([1.0, float(a), float(b)])
+                self._vertex_data.extend([float(a), -1.0, float(b)])
+                self._vertex_data.extend([float(a), 1.0, float(b)])
+                self._vertex_data.extend([float(a), float(b), -1.0])
+                self._vertex_data.extend([float(a), float(b), 1.0])
 
         self._firstVertexIndex[PrimitiveType.CUBE] = self._firstVertexIndex[PrimitiveType.GRID] + self._numVertices[PrimitiveType.GRID]
         self._numVertices[PrimitiveType.CUBE] = len(self._vertex_data)//3 - self._firstVertexIndex[PrimitiveType.CUBE]
@@ -54,23 +54,23 @@ class Primitives:
         # Construct an arrow (on 1,0,0 axis)
         arrowTipLen = 0.05
         arrowTipWidth = 0.03
-        self._vertex_data.extend([0, 0, 0])
-        self._vertex_data.extend([1, 0, 0])
-        self._vertex_data.extend([1-arrowTipLen, arrowTipWidth, arrowTipWidth])
-        self._vertex_data.extend([1, 0, 0])
-        self._vertex_data.extend([1-arrowTipLen, arrowTipWidth, -arrowTipWidth])
-        self._vertex_data.extend([1, 0, 0])
-        self._vertex_data.extend([1-arrowTipLen, -arrowTipWidth, arrowTipWidth])
-        self._vertex_data.extend([1, 0, 0])
-        self._vertex_data.extend([1-arrowTipLen, -arrowTipWidth, -arrowTipWidth])
-        self._vertex_data.extend([1, 0, 0])
+        self._vertex_data.extend([0.0, 0.0, 0.0])
+        self._vertex_data.extend([1.0, 0.0, 0.0])
+        self._vertex_data.extend([1.0-arrowTipLen, arrowTipWidth, arrowTipWidth])
+        self._vertex_data.extend([1.0, 0.0, 0.0])
+        self._vertex_data.extend([1.0-arrowTipLen, arrowTipWidth, -arrowTipWidth])
+        self._vertex_data.extend([1.0, 0.0, 0.0])
+        self._vertex_data.extend([1.0-arrowTipLen, -arrowTipWidth, arrowTipWidth])
+        self._vertex_data.extend([1.0, 0.0, 0.0])
+        self._vertex_data.extend([1.0-arrowTipLen, -arrowTipWidth, -arrowTipWidth])
+        self._vertex_data.extend([1.0, 0.0, 0.0])
 
         self._firstVertexIndex[PrimitiveType.ARROW] = self._firstVertexIndex[PrimitiveType.CUBE] + self._numVertices[PrimitiveType.CUBE]
         self._numVertices[PrimitiveType.ARROW] = len(self._vertex_data)//3 - self._firstVertexIndex[PrimitiveType.ARROW]
 
         # Construct a single line (on 1,0,0 axis)
-        self._vertex_data.extend([0, 0, 0])
-        self._vertex_data.extend([1, 0, 0])
+        self._vertex_data.extend([0.0, 0.0, 0.0])
+        self._vertex_data.extend([1.0, 0.0, 0.0])
         self._firstVertexIndex[PrimitiveType.LINE] = self._firstVertexIndex[PrimitiveType.ARROW] + self._numVertices[PrimitiveType.ARROW]
         self._numVertices[PrimitiveType.LINE] = len(self._vertex_data)//3 - self._firstVertexIndex[PrimitiveType.LINE]
 
@@ -78,8 +78,8 @@ class Primitives:
         numCircleSegments = 64
         prevCirclePos = []
         for i in range(0, numCircleSegments+1):
-            phi = ((2.0 * math.pi) / numCircleSegments)*i
-            circlePos = [0, math.cos(phi), math.sin(phi)]
+            phi = ((2.0 * math.pi) / numCircleSegments)*float(i)
+            circlePos = [0.0, math.cos(phi), math.sin(phi)]
             if i > 0:
                 self._vertex_data.extend(prevCirclePos)
                 self._vertex_data.extend(circlePos)
@@ -387,7 +387,7 @@ class Modeler(QGLWidget):
     def _convertMousePosToScreenPos(self, mousePosX, mousePosY):
         screenX = (mousePosX / self.width()) * 2.0 - 1.0
         screenY = ((mousePosY / self.height()) * -2.0 + 1.0)
-        return cgmath.Vec4(screenX, screenY, 0, 0)
+        return cgmath.Vec4(screenX, screenY, 0.0, 0.0)
 
     def _getModifierAxisPrimitiveType(self):
         if self._modifierMode == ModifierMode.TRANSLATE:
@@ -443,7 +443,7 @@ class Modeler(QGLWidget):
         self.repaint()
 
     def resizeGL(self, w, h):
-        self._projection = cgmath.Mat44.scale(1, 1, -1) * cgmath.Mat44.perspective(math.radians(30), w / float(h), 0.1, 100.0)
+        self._projection = cgmath.Mat44.scale(1.0, 1.0, -1.0) * cgmath.Mat44.perspective(math.radians(30), w / float(h), 0.1, 100.0)
 
         glViewport(0, 0, w, h)
 
@@ -526,8 +526,8 @@ class Modeler(QGLWidget):
     # Get the screen space direction of a modifier axis
     def _getModifierAxisScreenDir(self, modifierAxisDir):
         mvp = self._getModifierMVP()
-        v0 = cgmath.Vec4(0,0,0,1) * mvp
-        v1 = cgmath.Vec4(modifierAxisDir[0],modifierAxisDir[1],modifierAxisDir[2],1) * mvp
+        v0 = cgmath.Vec4(0.0,0.0,0.0,1.0) * mvp
+        v1 = cgmath.Vec4(modifierAxisDir[0],modifierAxisDir[1],modifierAxisDir[2],1.0) * mvp
         v0 /= v0[3]
         v1 /= v1[3]
         a = v1 - v0
@@ -542,7 +542,7 @@ class Modeler(QGLWidget):
             if self._adjustCameraMode == 0:
                 panSpeed = 0.025
                 deltaMouse = mathutil.Vec2(mouseEvent.localPos().x(), mouseEvent.localPos().y()) - self._adjustCameraStartMousePos
-                self._cameraTransform = cgmath.Mat44.translate(deltaMouse[0] * -panSpeed, deltaMouse[1] * panSpeed, 0) * self._adjustCameraStartCamera
+                self._cameraTransform = cgmath.Mat44.translate(deltaMouse[0] * -panSpeed, deltaMouse[1] * panSpeed, 0.0) * self._adjustCameraStartCamera
             # Rotating?
             elif self._adjustCameraMode == 1:
                 rotateSpeed = 0.010
@@ -553,23 +553,23 @@ class Modeler(QGLWidget):
                     self._adjustCameraStartCamera[0], self._adjustCameraStartCamera[1], self._adjustCameraStartCamera[2], self._adjustCameraStartCamera[3],
                     self._adjustCameraStartCamera[4], self._adjustCameraStartCamera[5], self._adjustCameraStartCamera[6], self._adjustCameraStartCamera[7],
                     self._adjustCameraStartCamera[8], self._adjustCameraStartCamera[9], self._adjustCameraStartCamera[10], self._adjustCameraStartCamera[11],
-                    0,0,0,1)
+                    0.0,0.0,0.0,1.0)
 
                 # Rotate
                 self._cameraTransform = self._cameraTransform * cgmath.Mat44.rotateY(deltaMouse[0] * rotateSpeed)
-                self._cameraTransform = self._cameraTransform * self.axisAngle(cgmath.Vec3(1, 0, 0) * self._cameraTransform, deltaMouse[1] * -rotateSpeed)
+                self._cameraTransform = self._cameraTransform * self.axisAngle(cgmath.Vec3(1.0, 0.0, 0.0) * self._cameraTransform, deltaMouse[1] * -rotateSpeed)
 
                 # Add position back
                 self._cameraTransform = cgmath.Mat44(
                     self._cameraTransform[0], self._cameraTransform[1], self._cameraTransform[2],  self._cameraTransform[3],
                     self._cameraTransform[4], self._cameraTransform[5], self._cameraTransform[6],  self._cameraTransform[7],
                     self._cameraTransform[8], self._cameraTransform[9], self._cameraTransform[10], self._cameraTransform[11],
-                    self._adjustCameraStartCamera[12],self._adjustCameraStartCamera[13],self._adjustCameraStartCamera[14],1)
+                    self._adjustCameraStartCamera[12],self._adjustCameraStartCamera[13],self._adjustCameraStartCamera[14],1.0)
             # Zooming?
             elif self._adjustCameraMode == 2:
                 zoomSpeed = 0.025
                 deltaMouse = mathutil.Vec2(mouseEvent.localPos().x(), mouseEvent.localPos().y()) - self._adjustCameraStartMousePos
-                self._cameraTransform = cgmath.Mat44.translate(0, 0, deltaMouse[1] * zoomSpeed) * self._adjustCameraStartCamera
+                self._cameraTransform = cgmath.Mat44.translate(0.0, 0.0, deltaMouse[1] * zoomSpeed) * self._adjustCameraStartCamera
 
         # Dragging?
         else:
@@ -577,11 +577,11 @@ class Modeler(QGLWidget):
             if self._modifierMode == ModifierMode.TRANSLATE and self._modifierAxis != ModifierAxis.NONE:
                 deltaMouse = self._convertMousePosToScreenPos(mouseEvent.localPos().x(), mouseEvent.localPos().y()) - self._modifyStartMouseScreenPos
                 if self._modifierAxis == ModifierAxis.X:
-                    axisDir = cgmath.Vec3(1,0,0)
+                    axisDir = cgmath.Vec3(1.0,0.0,0.0)
                 elif self._modifierAxis == ModifierAxis.Y:
-                    axisDir = cgmath.Vec3(0,1,0)
+                    axisDir = cgmath.Vec3(0.0,1.0,0.0)
                 else:
-                    axisDir = cgmath.Vec3(0,0,1)
+                    axisDir = cgmath.Vec3(0.0,0.0,1.0)
 
                 screenDir = self._getModifierAxisScreenDir(axisDir)
                 delta = screenDir[0]*deltaMouse[0] + screenDir[1]*deltaMouse[1]
@@ -594,11 +594,11 @@ class Modeler(QGLWidget):
                 amount = deltaMouse[0]
 
                 if self._modifierAxis == ModifierAxis.X:
-                    axisDir = cgmath.Vec3(1,0,0)
+                    axisDir = cgmath.Vec3(1.0,0.0,0.0)
                 elif self._modifierAxis == ModifierAxis.Y:
-                    axisDir = cgmath.Vec3(0,1,0)
+                    axisDir = cgmath.Vec3(0.0,1.0,0.0)
                 else:
-                    axisDir = cgmath.Vec3(0,0,1)
+                    axisDir = cgmath.Vec3(0.0,0.0,1.0)
 
                 self._currentModelNode.rotation = axisDir * amount + self._modifyStartModelRotation
 
@@ -606,11 +606,11 @@ class Modeler(QGLWidget):
             elif self._modifierMode == ModifierMode.SCALE_NONUNIFORM and self._modifierAxis != ModifierAxis.NONE:
                 deltaMouse = self._convertMousePosToScreenPos(mouseEvent.localPos().x(), mouseEvent.localPos().y()) - self._modifyStartMouseScreenPos
                 if self._modifierAxis == ModifierAxis.X:
-                    axisDir = cgmath.Vec3(1,0,0)
+                    axisDir = cgmath.Vec3(1.0,0.0,0.0)
                 elif self._modifierAxis == ModifierAxis.Y:
-                    axisDir = cgmath.Vec3(0,1,0)
+                    axisDir = cgmath.Vec3(0.0,1.0,0.0)
                 else:
-                    axisDir = cgmath.Vec3(0,0,1)
+                    axisDir = cgmath.Vec3(0.0,0.0,1.0)
 
                 screenDir = self._getModifierAxisScreenDir(axisDir)
                 delta = screenDir[0]*deltaMouse[0] + screenDir[1]*deltaMouse[1]

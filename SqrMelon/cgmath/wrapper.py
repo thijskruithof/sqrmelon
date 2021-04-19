@@ -111,6 +111,8 @@ def prepare():
     _dllHandle.Vector_Cross.argtypes = (ctypes.c_void_p, ctypes.c_void_p)
     _dllHandle.Vector_Normalized.argtypes = (ctypes.c_void_p,)
     _dllHandle.Vector_Copy.argtypes = (ctypes.c_void_p,)
+    _dllHandle.Vector_FromFloat4.argtypes = (ctypes.c_void_p,)
+    _dllHandle.Vector_Data.argtypes = (ctypes.c_void_p, ctypes.c_void_p,)
 
     _dllHandle.Vector_Neg.restype = ctypes.c_void_p
     _dllHandle.Vector_Sub.restype = ctypes.c_void_p
@@ -133,6 +135,8 @@ def prepare():
     _dllHandle.Vector_Cross.restype = ctypes.c_void_p
     _dllHandle.Vector_Normalized.restype = ctypes.c_void_p
     _dllHandle.Vector_Copy.restype = ctypes.c_void_p
+    _dllHandle.Vector_FromFloat4.restype = ctypes.c_void_p
+    _dllHandle.Vector_Data.restype = None
 
     _dllHandle.Mat44_Row.argtypes = (ctypes.c_void_p, ctypes.c_int)
     _dllHandle.Mat44_MultiplyVector.argtypes = (ctypes.c_void_p, ctypes.c_void_p)
@@ -256,7 +260,7 @@ class VectorBase(object):
         self._data = None
         return self
 
-    def __idiv__(self, other):
+    def __itruediv__(self, other):
         if isinstance(other, self.__class__):
             _dllHandle.Vector_IDiv(self._ptr, other._ptr)
         else:

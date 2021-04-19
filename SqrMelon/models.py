@@ -178,7 +178,7 @@ class ModelNodeBox(ModelNodeBase):
         for z in range(-1,2,2):
             for y in range(-1, 2, 2):
                 for x in range(-1, 2, 2):
-                    p = cgmath.Vec4(x, y, z, 1)
+                    p = cgmath.Vec4(float(x), float(y), float(z), 1.0)
                     p = modelTransform * p
                     bounds.add(cgmath.Vec3(p[0],p[1],p[2]))
         return bounds
