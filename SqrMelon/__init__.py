@@ -57,6 +57,12 @@ class App(QMainWindowState):
         super(App, self).__init__(gSettings)
         self.setAnimated(False)
 
+        # We found that not setting a version in Ubunto didn't work
+        glFormat = QGLFormat()
+        glFormat.setVersion(4, 1)
+        glFormat.setProfile(QGLFormat.CoreProfile)
+        glFormat.setDefaultFormat(glFormat)
+
         if datetime.datetime.month == '12':
             self.setWindowIcon(icons.get('Candy Cane-48'))
         else:

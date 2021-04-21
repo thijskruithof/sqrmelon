@@ -146,20 +146,13 @@ class ModifierMode:
     ROTATE = 2
     SCALE_NONUNIFORM = 3
 
-class Modeler(QGLWidget):
+class Modeler(QOpenGLWidget):
     selectedModelNodeChanged = pyqtSignal(object, object)
 
     """
     Modeler window/viewport
     """
     def __init__(self, models):
-
-        # We found that not setting a version in Ubunto didn't work
-        glFormat = QGLFormat()
-        glFormat.setVersion(4, 1)
-        glFormat.setProfile(QGLFormat.CoreProfile)
-        glFormat.setDefaultFormat(glFormat)
-
         super(Modeler, self).__init__()
 
         self.setLayout(vlayout())
@@ -440,12 +433,10 @@ class Modeler(QGLWidget):
 
     def __onResize(self):
         self._updateMinMouseClickDist()
-        self.repaint()
+        self.update()
 
     def resizeGL(self, w, h):
         self._projection = cgmath.Mat44.scale(1.0, 1.0, -1.0) * cgmath.Mat44.perspective(math.radians(30), w / float(h), 0.1, 100.0)
-
-        glViewport(0, 0, w, h)
 
         self.__onResize()
 
@@ -488,7 +479,7 @@ class Modeler(QGLWidget):
                     self._modifyStartModelTranslation = self._currentModelNode.translation
                     self._modifyStartModelRotation = self._currentModelNode.rotation
                     self._modifyStartModelSize = self._currentModelNode.size
-                    self.repaint()
+                    self.update()
 
             # Did we otherwise click on a node of the model?
             if not self._currentModel is None and not clickHandled:
@@ -617,7 +608,7 @@ class Modeler(QGLWidget):
 
                 self._currentModelNode.size = axisDir * delta * 0.5 + self._modifyStartModelSize
 
-        self.repaint()
+        self.update()
 
     def mouseReleaseEvent(self, mouseEvent):
         super(Modeler, self).mouseReleaseEvent(mouseEvent)
@@ -638,7 +629,7 @@ class Modeler(QGLWidget):
         else:
             if self._modifierMode != ModifierMode.SELECT:
                 self._modifierAxis = ModifierAxis.NONE
-                self.repaint()
+                self.update()
 
     def eventFilter(self, watched, event):
         if event.type() == QEvent.ShortcutOverride:
@@ -659,28 +650,28 @@ class Modeler(QGLWidget):
 
         if event.key() == Qt.Key_Q or event.key() == Qt.Key_Escape:
             self._modifierMode = ModifierMode.SELECT
-            self.repaint()
+            self.update()
         elif event.key() == Qt.Key_W:
             self._modifierMode = ModifierMode.TRANSLATE
             self._modifierAxis = ModifierAxis.NONE
-            self.repaint()
+            self.update()
         elif event.key() == Qt.Key_E:
             self._modifierMode = ModifierMode.ROTATE
             self._modifierAxis = ModifierAxis.NONE
-            self.repaint()
+            self.update()
         elif event.key() == Qt.Key_R:
             self._modifierMode = ModifierMode.SCALE_NONUNIFORM
             self._modifierAxis = ModifierAxis.NONE
-            self.repaint()
+            self.update()
 
     def setModelNode(self, model, node):
         self._currentModel = model
         self._currentModelNode = node
-        self.repaint()
+        self.update()
 
     def onModelChanged(self, model):
         if model == self._currentModel:
-            self.repaint()
+            self.update()
 
     def saveState(self):
         # save user camera position per scene
@@ -728,5 +719,5 @@ class Modeler(QGLWidget):
         ct = list(map(float, xMod.attrib['CameraTransform'].split(',')))
         self._cameraTransform = cgmath.Mat44(ct[0],ct[1],ct[2],ct[3],ct[4],ct[5],ct[6],ct[7],ct[8],ct[9],ct[10],ct[11],ct[12],ct[13],ct[14],ct[15])
 
-        self.repaint()
+        self.update()
 
