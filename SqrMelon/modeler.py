@@ -460,6 +460,13 @@ class Modeler(QOpenGLWidget):
             # Rotating?
             elif mouseEvent.buttons() & Qt.LeftButton:
                 self._adjustCameraMode = 1
+
+                if self._currentModelNode != None:
+                    modelTransform = self._currentModelNode.getModelTransform()
+                    self._adjustCameraPivot = cgmath.Vec3(modelTransform[12], modelTransform[13], modelTransform[14])
+                else:
+                    self._adjustCameraPivot = cgmath.Vec3(0.0, 0.0, 0.0)
+
             # Zooming?
             elif mouseEvent.buttons() & Qt.RightButton:
                 self._adjustCameraMode = 2
@@ -539,23 +546,16 @@ class Modeler(QOpenGLWidget):
                 rotateSpeed = 0.010
                 deltaMouse = mathutil.Vec2(mouseEvent.localPos().x(), mouseEvent.localPos().y()) - self._adjustCameraStartMousePos
 
-                # Remove position
-                self._cameraTransform = cgmath.Mat44(
-                    self._adjustCameraStartCamera[0], self._adjustCameraStartCamera[1], self._adjustCameraStartCamera[2], self._adjustCameraStartCamera[3],
-                    self._adjustCameraStartCamera[4], self._adjustCameraStartCamera[5], self._adjustCameraStartCamera[6], self._adjustCameraStartCamera[7],
-                    self._adjustCameraStartCamera[8], self._adjustCameraStartCamera[9], self._adjustCameraStartCamera[10], self._adjustCameraStartCamera[11],
-                    0.0,0.0,0.0,1.0)
+                # Remove pivot
+                self._cameraTransform = cgmath.Mat44(self._adjustCameraStartCamera) * cgmath.Mat44.translate(-self._adjustCameraPivot[0], -self._adjustCameraPivot[1], -self._adjustCameraPivot[2])
 
                 # Rotate
                 self._cameraTransform = self._cameraTransform * cgmath.Mat44.rotateY(deltaMouse[0] * rotateSpeed)
                 self._cameraTransform = self._cameraTransform * self.axisAngle(cgmath.Vec3(1.0, 0.0, 0.0) * self._cameraTransform, deltaMouse[1] * -rotateSpeed)
 
-                # Add position back
-                self._cameraTransform = cgmath.Mat44(
-                    self._cameraTransform[0], self._cameraTransform[1], self._cameraTransform[2],  self._cameraTransform[3],
-                    self._cameraTransform[4], self._cameraTransform[5], self._cameraTransform[6],  self._cameraTransform[7],
-                    self._cameraTransform[8], self._cameraTransform[9], self._cameraTransform[10], self._cameraTransform[11],
-                    self._adjustCameraStartCamera[12],self._adjustCameraStartCamera[13],self._adjustCameraStartCamera[14],1.0)
+                # Add pivot back
+                self._cameraTransform = cgmath.Mat44(self._cameraTransform) * cgmath.Mat44.translate(self._adjustCameraPivot[0], self._adjustCameraPivot[1], self._adjustCameraPivot[2])
+
             # Zooming?
             elif self._adjustCameraMode == 2:
                 zoomSpeed = 0.025
