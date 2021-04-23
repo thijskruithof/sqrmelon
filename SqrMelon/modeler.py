@@ -432,6 +432,22 @@ class Modeler(QOpenGLWidget):
 
         return None
 
+    # Center our view on the selection
+    # If there's no selection we'll center the view on the whole model
+    def _centerView(self):
+        centerPos = cgmath.Vec3(0.0, 0.0, 0.0)
+        radius = 1.0
+
+        if self._currentModelNode != None:
+            bounds = self._currentModelNode.getBounds()
+            centerPos = bounds.center
+            radius = (bounds.max - centerPos).length
+
+        translation = centerPos - self._cameraPivot
+
+        self._cameraPivot = self._cameraPivot + translation
+        self._cameraTransform = self._cameraTransform * cgmath.Mat44.translate(translation[0], translation[1], translation[2])
+
     def __onResize(self):
         self._updateMinMouseClickDist()
         self.update()
@@ -634,6 +650,7 @@ class Modeler(QOpenGLWidget):
                 event.key() == Qt.Key_W or \
                 event.key() == Qt.Key_E or \
                 event.key() == Qt.Key_R or \
+                event.key() == Qt.Key_F or \
                 event.key() == Qt.Key_Escape:
                 # Disable all shortcuts for these keys, as we really want to handle these ourselves.
                 # (We have some overrides for these at the app level)
@@ -659,6 +676,9 @@ class Modeler(QOpenGLWidget):
         elif event.key() == Qt.Key_R:
             self._modifierMode = ModifierMode.SCALE_NONUNIFORM
             self._modifierAxis = ModifierAxis.NONE
+            self.update()
+        elif event.key() == Qt.Key_F:
+            self._centerView()
             self.update()
 
     def setModelNode(self, model, node):

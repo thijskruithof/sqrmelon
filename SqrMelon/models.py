@@ -38,6 +38,10 @@ class Bounds(object):
     def max(self):
         return self._max
 
+    @property
+    def center(self):
+        return (self._min + self._max) * 0.5
+
 class ModelNodeBase(object):
     """
     Base class for a node of the Model

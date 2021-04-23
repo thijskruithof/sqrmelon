@@ -4,6 +4,8 @@ Wrapped SIMD math library.
 Regardless of the python classes wrapping & lot's of if checks in initializers
 this is loads faster than a python implementation + guarantees matching output with C++ code.
 """
+import math
+
 from pycompat import *
 import os
 import ctypes
@@ -206,6 +208,10 @@ class VectorBase(object):
 
     def normalized(self):
         return self.__class__(_dllHandle.Vector_Normalized(self._ptr))
+
+    @property
+    def length(self):
+        return math.sqrt(self.dot(self))
 
     def __neg__(self):
         return self.__class__(_dllHandle.Vector_Neg(self._ptr))
