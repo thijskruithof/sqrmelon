@@ -168,6 +168,7 @@ class Modeler(QOpenGLWidget):
         self._modelTransform =  cgmath.Mat44()
         self._viewTransform = cgmath.Mat44()
 
+        self._cameraPivot = cgmath.Vec3(0.0,0.0,0.0)
         self._adjustingCamera = False
         self._adjustCameraMode = 0
 
@@ -453,6 +454,7 @@ class Modeler(QOpenGLWidget):
             self._adjustingCamera = True
             self._adjustCameraStartMousePos = mathutil.Vec2(mouseEvent.localPos().x(), mouseEvent.localPos().y())
             self._adjustCameraStartCamera = self._cameraTransform
+            self._adjustCameraPivot = self._cameraPivot
 
             # Panning?
             if mouseEvent.buttons() & Qt.MiddleButton:
@@ -460,13 +462,6 @@ class Modeler(QOpenGLWidget):
             # Rotating?
             elif mouseEvent.buttons() & Qt.LeftButton:
                 self._adjustCameraMode = 1
-
-                if self._currentModelNode != None:
-                    modelTransform = self._currentModelNode.getModelTransform()
-                    self._adjustCameraPivot = cgmath.Vec3(modelTransform[12], modelTransform[13], modelTransform[14])
-                else:
-                    self._adjustCameraPivot = cgmath.Vec3(0.0, 0.0, 0.0)
-
             # Zooming?
             elif mouseEvent.buttons() & Qt.RightButton:
                 self._adjustCameraMode = 2
@@ -541,6 +536,8 @@ class Modeler(QOpenGLWidget):
                 panSpeed = 0.025
                 deltaMouse = mathutil.Vec2(mouseEvent.localPos().x(), mouseEvent.localPos().y()) - self._adjustCameraStartMousePos
                 self._cameraTransform = cgmath.Mat44.translate(deltaMouse[0] * -panSpeed, deltaMouse[1] * panSpeed, 0.0) * self._adjustCameraStartCamera
+                self._cameraPivot = self._adjustCameraPivot + cgmath.Vec3(self._cameraTransform[12] - self._adjustCameraStartCamera[12], self._cameraTransform[13] - self._adjustCameraStartCamera[13], self._cameraTransform[14] - self._adjustCameraStartCamera[14])
+
             # Rotating?
             elif self._adjustCameraMode == 1:
                 rotateSpeed = 0.010
