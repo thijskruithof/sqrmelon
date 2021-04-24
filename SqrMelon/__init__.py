@@ -115,10 +115,10 @@ class App(QMainWindowState):
         self.__models = Models()
         self.__modeler = modeler.Modeler(self.__models)
         self.__modelsOutliner = ModelsOutliner(self.__models)
-        self.__modelsOutliner.selectedModelNodeChanged.connect(self.__modeler.setModelNode)
-        self.__models.modelChanged.connect(self.__modeler.onModelChanged)
+        self.__modelsOutliner.selectedModelNodeChanged.connect(self.__modeler.viewport.setModelNode)
+        self.__models.modelChanged.connect(self.__modeler.viewport.onModelChanged)
         self.__models.modelChanged.connect(self._scheduleModelExport)
-        self.__modeler.selectedModelNodeChanged.connect(self.__modelsOutliner.selectModelNode)
+        self.__modeler.viewport.selectedModelNodeChanged.connect(self.__modelsOutliner.selectModelNode)
 
         self.timeSlider = TimeSlider(self._timer, self.__shotsManager)
         self.__shotsManager.shotChanged.connect(self.timeSlider.repaint)
@@ -416,7 +416,7 @@ class App(QMainWindowState):
         self.__shotsManager.saveAllShots()
         self._timer.saveState()
         self.__models.saveToProject()
-        self.__modeler.saveState()
+        self.__modeler.viewport.saveState()
 
         QMessageBox.information(self, 'Save succesful!', 'Animation, shot & timing changes have been saved.')
 
@@ -447,7 +447,7 @@ class App(QMainWindowState):
         self._timer.projectOpened()
         self.__models.loadFromProject()
         self.__modelsOutliner.reset()
-        self.__modeler.loadState()
+        self.__modeler.viewport.loadState()
 
     def __initializeProject(self):
         project = currentProjectFilePath()

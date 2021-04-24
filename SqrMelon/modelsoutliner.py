@@ -123,7 +123,7 @@ class ModelsOutliner(QWidget):
 
         addModelButton = QPushButton(icons.get('Add Image-48'), '')
         addModelButton.clicked.connect(self._onAddModel)
-        addModelButton.setIconSize(QSize(16, 16))
+        addModelButton.setIconSize(QSize(24, 24))
         addModelButton.setToolTip('Add model')
         addModelButton.setStatusTip('Add model')
         toolbar.addWidget(addModelButton)
