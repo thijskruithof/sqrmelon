@@ -319,7 +319,7 @@ class Modeler(QOpenGLWidget):
 
     def _getModifierMVP(self):
         modelTransform = self._currentModelNode.getModelTransform()
-        modifierSize = 0.125 if self._modifierMode == ModifierMode.ROTATE else 0.25
+        modifierSize = 0.05 if self._modifierMode == ModifierMode.ROTATE else 0.10
 
         if self._modifierMode == ModifierMode.TRANSLATE:
             # Translation is in world space, simply emit world space axes
