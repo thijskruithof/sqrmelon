@@ -164,7 +164,7 @@ class Modeler(QOpenGLWidget):
         self._currentModel = None
         self._currentModelNode = None
 
-        self._cameraTransform = cgmath.Mat44.translate(0, 1, -2)
+        self._cameraTransform = cgmath.Mat44.translate(0, 0, -2)
         self._modelTransform =  cgmath.Mat44()
         self._viewTransform = cgmath.Mat44()
 
@@ -442,11 +442,25 @@ class Modeler(QOpenGLWidget):
             bounds = self._currentModelNode.getBounds()
             centerPos = bounds.center
             radius = (bounds.max - centerPos).length
+        elif self._currentModel != None:
+            bounds = self._currentModel.getBounds()
+            centerPos = bounds.center
+            radius = (bounds.max - centerPos).length
 
         translation = centerPos - self._cameraPivot
 
         self._cameraPivot = self._cameraPivot + translation
+        # Move camera as well
         self._cameraTransform = self._cameraTransform * cgmath.Mat44.translate(translation[0], translation[1], translation[2])
+
+        # Pull back camera
+        currentDist = (cgmath.Vec3(self._cameraTransform[12], self._cameraTransform[13], self._cameraTransform[14]) - self._cameraPivot).length
+
+        fovH = math.radians(30)
+        fovW = (self.width()/float(self.height()))*fovH
+        desiredDist = 2.0*max(radius/math.tan(fovH), radius/math.tan(fovW))
+
+        self._cameraTransform = cgmath.Mat44.translate(0.0, 0.0, currentDist-desiredDist) * self._cameraTransform
 
     def __onResize(self):
         self._updateMinMouseClickDist()
@@ -706,6 +720,7 @@ class Modeler(QOpenGLWidget):
             xMod.set('CurrentModel', str(self._models.models.index(self._currentModel)))
 
         xMod.set('CameraTransform', ','.join(map(str, self._cameraTransform[:])))
+        xMod.set('CameraPivot', ','.join(map(str, self._cameraPivot[:])))
 
         with userFile.edit() as fh:
             fh.write(toPrettyXml(xUser))
@@ -735,6 +750,9 @@ class Modeler(QOpenGLWidget):
 
         ct = list(map(float, xMod.attrib['CameraTransform'].split(',')))
         self._cameraTransform = cgmath.Mat44(ct[0],ct[1],ct[2],ct[3],ct[4],ct[5],ct[6],ct[7],ct[8],ct[9],ct[10],ct[11],ct[12],ct[13],ct[14],ct[15])
+
+        ct = list(map(float, xMod.attrib['CameraPivot'].split(',')))
+        self._cameraPivot = cgmath.Vec3(ct[0], ct[1], ct[2])
 
         self.update()
 
