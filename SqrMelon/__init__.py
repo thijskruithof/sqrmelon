@@ -73,7 +73,7 @@ class App(QMainWindowState):
         self.__menuBar = QMenuBar()
         self.setMenuBar(self.__menuBar)
 
-        self.__dockWidgetMenu = QMenu('Components')
+        self.__dockWidgetMenu = QMenu('Windows')
 
         self.__statusBar = QStatusBar()
         self.setStatusBar(self.__statusBar)
@@ -411,8 +411,9 @@ class App(QMainWindowState):
 
     def __aboutDialog(self):
         QMessageBox.about(self, 'About SqrMelon',
-                          r"""<p>SqrMelon is a tool to manage a versions (scenes) of a graph of fragment shaders (templates) & drive uniforms with animation curves (shots).</p>
-                          <p>Download or find documentation on <a href="https://github.com/trevorvanhoof/sqrmelon/">GitHub</a>!</p>
+                          r"""<p>SqrMelon is a tool for keyframe animation & fragment shader management for 64k executables.</p>
+                          <p>Source code and documentation is available on <a href="https://github.com/thijskruithof/sqrmelon/">GitHub</a>.</p><br/>
+                          <p>Note: this is a customized fork of the original <a href="https://github.com/trevorvanhoof/sqrmelon/">SqrMelon project</a>.</p>
                           <p>Icons from <a href="https://icons8.com/">icons8.com</a></p>""")
 
     def __colorPicker(self):
