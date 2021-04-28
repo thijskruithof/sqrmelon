@@ -98,12 +98,23 @@ class App(QMainWindowState):
         self.__graphEditor.requestRotationKey.connect(cameraView.forwardRotationKey)
         self.__sceneView.setCamera(cameraView)
         self.__projectMenu = self.__menuBar.addMenu('&Project')
-        self.__projectMenu.addAction('&New').triggered.connect(self.__onNewProject)
-        self.__projectMenu.addAction('&Open').triggered.connect(self.__onOpenProject)
+        newAction = self.__projectMenu.addAction('&New')
+        newAction.setIcon(icons.get('icons8-new-document-50'))
+        newAction.triggered.connect(self.__onNewProject)
+        openAction = self.__projectMenu.addAction('&Open')
+        openAction.setIcon(icons.get('icons8-opened-folder-48'))
+        openAction.triggered.connect(self.__onOpenProject)
+        self.__projectMenu.addSeparator()
         save = self.__projectMenu.addAction('&Save')
         save.setShortcut(QKeySequence.Save)
         save.setShortcutContext(Qt.ApplicationShortcut)
+        save.setIcon(icons.get('icons8-save-50'))
         save.triggered.connect(self.__onCtrlS)
+        self.__projectMenu.addSeparator()
+        exitAction = self.__projectMenu.addAction('E&xit')
+        exitAction.setIcon(icons.get('icons8-exit-50'))
+        exitAction.triggered.connect(self.close)
+
         self.__sceneList = SceneList()
         self.__shotsManager.findSceneRequest.connect(self.__sceneList.selectSceneWithName)
         self.__sceneList.requestCreateShot.connect(self.__shotsManager.createShot)
@@ -239,7 +250,12 @@ class App(QMainWindowState):
         option.setChecked(True)
 
         self.__menuBar.addMenu(self.__dockWidgetMenu)
-        self.__menuBar.addAction('About').triggered.connect(self.__aboutDialog)
+
+        self.__helpMenu = self.__menuBar.addMenu('&Help')
+        aboutAction = self.__helpMenu.addAction('About')
+        aboutAction.setIcon(icons.get('icons8-info-48'))
+        aboutAction.triggered.connect(self.__aboutDialog)
+
         self.__restoreUiLock(lock)
 
         self._exportModelTimer = None
@@ -396,8 +412,8 @@ class App(QMainWindowState):
     def __aboutDialog(self):
         QMessageBox.about(self, 'About SqrMelon',
                           r"""<p>SqrMelon is a tool to manage a versions (scenes) of a graph of fragment shaders (templates) & drive uniforms with animation curves (shots).</p>
-                          <p>Download or find documentation on <a href="https://github.com/trevorvanhoof/sqrmelon/">GitHub/</a>!</p>
-                          <p>Icons from <a href="https://icons8.com/">icons8.com/</a></p>""")
+                          <p>Download or find documentation on <a href="https://github.com/trevorvanhoof/sqrmelon/">GitHub</a>!</p>
+                          <p>Icons from <a href="https://icons8.com/">icons8.com</a></p>""")
 
     def __colorPicker(self):
         color = QColorDialog.getColor()
@@ -482,6 +498,8 @@ class App(QMainWindowState):
 
     def __onNewProject(self):
         currentPath = self.__changeProjectHelper('Creating new project')
+        if currentPath is None:
+            return
         res = FileDialog.getSaveFileName(self, 'Create new project', currentPath, 'Project folder')
         if not res:
             return
@@ -492,6 +510,8 @@ class App(QMainWindowState):
 
     def __onOpenProject(self):
         currentPath = self.__changeProjectHelper('Changing project')
+        if currentPath is None:
+            return
         res = FileDialog.getOpenFileName(self, 'Open project', currentPath, 'Project files (*%s)' % PROJ_EXT)
         if not res:
             return
