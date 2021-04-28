@@ -149,6 +149,7 @@ class ModifierMode:
 
 class ModelerViewport(QOpenGLWidget):
     selectedModelNodeChanged = pyqtSignal(object, object)
+    modifierModeChanged = pyqtSignal(object)
 
     """
     Modeler window/viewport
@@ -436,7 +437,7 @@ class ModelerViewport(QOpenGLWidget):
 
     # Center our view on the selection
     # If there's no selection we'll center the view on the whole model
-    def _centerView(self):
+    def centerView(self):
         centerPos = cgmath.Vec3(0.0, 0.0, 0.0)
         radius = 1.0
 
@@ -680,23 +681,15 @@ class ModelerViewport(QOpenGLWidget):
         super(ModelerViewport, self).keyPressEvent(event)
 
         if event.key() == Qt.Key_Q or event.key() == Qt.Key_Escape:
-            self._modifierMode = ModifierMode.SELECT
-            self.update()
+            self.setModifierModeSelect()
         elif event.key() == Qt.Key_W:
-            self._modifierMode = ModifierMode.TRANSLATE
-            self._modifierAxis = ModifierAxis.NONE
-            self.update()
+            self.setModifierModeTranslate()
         elif event.key() == Qt.Key_E:
-            self._modifierMode = ModifierMode.ROTATE
-            self._modifierAxis = ModifierAxis.NONE
-            self.update()
+            self.setModifierModeRotate()
         elif event.key() == Qt.Key_R:
-            self._modifierMode = ModifierMode.SCALE_NONUNIFORM
-            self._modifierAxis = ModifierAxis.NONE
-            self.update()
+            self.setModifierModeScale()
         elif event.key() == Qt.Key_F:
-            self._centerView()
-            self.update()
+            self.centerView()
 
     def setModelNode(self, model, node):
         self._currentModel = model
@@ -705,6 +698,33 @@ class ModelerViewport(QOpenGLWidget):
 
     def onModelChanged(self, model):
         if model == self._currentModel:
+            self.update()
+
+    def setModifierModeSelect(self):
+        if self._modifierMode != ModifierMode.SELECT:
+            self._modifierMode = ModifierMode.SELECT
+            self.modifierModeChanged.emit(self._modifierMode)
+            self.update()
+
+    def setModifierModeTranslate(self):
+        if self._modifierMode != ModifierMode.TRANSLATE:
+            self._modifierMode = ModifierMode.TRANSLATE
+            self._modifierAxis = ModifierAxis.NONE
+            self.modifierModeChanged.emit(self._modifierMode)
+            self.update()
+
+    def setModifierModeRotate(self):
+        if self._modifierMode != ModifierMode.ROTATE:
+            self._modifierMode = ModifierMode.ROTATE
+            self._modifierAxis = ModifierAxis.NONE
+            self.modifierModeChanged.emit(self._modifierMode)
+            self.update()
+
+    def setModifierModeScale(self):
+        if self._modifierMode != ModifierMode.SCALE_NONUNIFORM:
+            self._modifierMode = ModifierMode.SCALE_NONUNIFORM
+            self._modifierAxis = ModifierAxis.NONE
+            self.modifierModeChanged.emit(self._modifierMode)
             self.update()
 
     def saveState(self):
@@ -769,13 +789,48 @@ class Modeler(QWidget):
         toolbar = hlayout()
 
         self._viewport = ModelerViewport(models)
+        self._viewport.modifierModeChanged.connect(self._modifierModeChanged)
+
+        self._selectButton = QPushButton(icons.get('icons8-cursor-50'), '')
+        self._selectButton.clicked.connect(self._viewport.setModifierModeSelect)
+        self._selectButton.setIconSize(QSize(24, 24))
+        self._selectButton.setToolTip('Select')
+        self._selectButton.setStatusTip('Select')
+        self._selectButton.setCheckable(True)
+        self._selectButton.setChecked(True)
+        toolbar.addWidget(self._selectButton)
+
+        self._translateButton = QPushButton(icons.get('icons8-move-50'), '')
+        self._translateButton.clicked.connect(self._viewport.setModifierModeTranslate)
+        self._translateButton.setIconSize(QSize(24, 24))
+        self._translateButton.setToolTip('Translate')
+        self._translateButton.setStatusTip('Translate')
+        self._translateButton.setCheckable(True)
+        toolbar.addWidget(self._translateButton)
+
+        self._rotateButton = QPushButton(icons.get('icons8-3d-rotate-50'), '')
+        self._rotateButton.clicked.connect(self._viewport.setModifierModeRotate)
+        self._rotateButton.setIconSize(QSize(24, 24))
+        self._rotateButton.setToolTip('Rotate')
+        self._rotateButton.setStatusTip('Rotate')
+        self._rotateButton.setCheckable(True)
+        toolbar.addWidget(self._rotateButton)
+
+        self._scaleButton = QPushButton(icons.get('icons8-scale-tool-50'), '')
+        self._scaleButton.clicked.connect(self._viewport.setModifierModeScale)
+        self._scaleButton.setIconSize(QSize(24, 24))
+        self._scaleButton.setToolTip('Scale')
+        self._scaleButton.setStatusTip('Scale')
+        self._scaleButton.setCheckable(True)
+        toolbar.addWidget(self._scaleButton)
+
+        toolbar.addSpacing(10)
 
         centerViewButton = QPushButton(icons.get('icons8-zoom-to-extents-50'), '')
-        centerViewButton.clicked.connect(self._viewport._centerView)
+        centerViewButton.clicked.connect(self._viewport.centerView)
         centerViewButton.setIconSize(QSize(24, 24))
         centerViewButton.setToolTip('Center View (f)')
         centerViewButton.setStatusTip('Center View (f)')
-
         toolbar.addWidget(centerViewButton)
 
         toolbar.addStretch(1)
@@ -787,3 +842,10 @@ class Modeler(QWidget):
     @property
     def viewport(self):
         return self._viewport
+
+    def _modifierModeChanged(self, newMode):
+        self._selectButton.setChecked(newMode == ModifierMode.SELECT)
+        self._translateButton.setChecked(newMode == ModifierMode.TRANSLATE)
+        self._rotateButton.setChecked(newMode == ModifierMode.ROTATE)
+        self._scaleButton.setChecked(newMode == ModifierMode.SCALE_NONUNIFORM)
+
