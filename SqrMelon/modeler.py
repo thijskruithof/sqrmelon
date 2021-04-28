@@ -10,6 +10,7 @@ from util import toPrettyXml, currentProjectFilePath
 from xml.etree import cElementTree
 from projutil import parseXMLWithIncludes
 from xmlutil import vec3ToXmlAttrib, xmlAttribToVec3
+import icons
 
 class PrimitiveType:
     GRID = 0    # Grid in XZ plane
@@ -146,16 +147,17 @@ class ModifierMode:
     ROTATE = 2
     SCALE_NONUNIFORM = 3
 
-class Modeler(QOpenGLWidget):
+class ModelerViewport(QOpenGLWidget):
     selectedModelNodeChanged = pyqtSignal(object, object)
 
     """
     Modeler window/viewport
     """
     def __init__(self, models):
-        super(Modeler, self).__init__()
+        super(ModelerViewport, self).__init__()
 
         self.setLayout(vlayout())
+
         self._updateMinMouseClickDist()
 
         self._primitives = Primitives()
@@ -461,6 +463,7 @@ class Modeler(QOpenGLWidget):
         desiredDist = 2.0*max(radius/math.tan(fovH), radius/math.tan(fovW))
 
         self._cameraTransform = cgmath.Mat44.translate(0.0, 0.0, currentDist-desiredDist) * self._cameraTransform
+        self.update()
 
     def __onResize(self):
         self._updateMinMouseClickDist()
@@ -472,7 +475,7 @@ class Modeler(QOpenGLWidget):
         self.__onResize()
 
     def mousePressEvent(self, mouseEvent):
-        super(Modeler, self).mousePressEvent(mouseEvent)
+        super(ModelerViewport, self).mousePressEvent(mouseEvent)
 
         if self._adjustingCamera:
             return
@@ -557,7 +560,7 @@ class Modeler(QOpenGLWidget):
         return a.normalized()
 
     def mouseMoveEvent(self, mouseEvent):
-        super(Modeler, self).mouseMoveEvent(mouseEvent)
+        super(ModelerViewport, self).mouseMoveEvent(mouseEvent)
 
         # Panning/Rotating/Zooming?
         if self._adjustingCamera:
@@ -638,7 +641,7 @@ class Modeler(QOpenGLWidget):
         self.update()
 
     def mouseReleaseEvent(self, mouseEvent):
-        super(Modeler, self).mouseReleaseEvent(mouseEvent)
+        super(ModelerViewport, self).mouseReleaseEvent(mouseEvent)
 
         # Panning/Rotating/Zooming?
         if self._adjustingCamera:
@@ -671,10 +674,10 @@ class Modeler(QOpenGLWidget):
                 self.keyPressEvent(event)
                 return True
 
-        return super(Modeler, self).eventFilter(watched, event)
+        return super(ModelerViewport, self).eventFilter(watched, event)
 
     def keyPressEvent(self, event):
-        super(Modeler, self).keyPressEvent(event)
+        super(ModelerViewport, self).keyPressEvent(event)
 
         if event.key() == Qt.Key_Q or event.key() == Qt.Key_Escape:
             self._modifierMode = ModifierMode.SELECT
@@ -756,3 +759,31 @@ class Modeler(QOpenGLWidget):
 
         self.update()
 
+
+class Modeler(QWidget):
+    def __init__(self, models):
+        super(Modeler, self).__init__()
+
+        self.setLayout(vlayout())
+
+        toolbar = hlayout()
+
+        self._viewport = ModelerViewport(models)
+
+        centerViewButton = QPushButton(icons.get('icons8-zoom-to-extents-50'), '')
+        centerViewButton.clicked.connect(self._viewport._centerView)
+        centerViewButton.setIconSize(QSize(24, 24))
+        centerViewButton.setToolTip('Center View (f)')
+        centerViewButton.setStatusTip('Center View (f)')
+
+        toolbar.addWidget(centerViewButton)
+
+        toolbar.addStretch(1)
+
+        self.layout().addLayout(toolbar)
+        self.layout().addWidget(self._viewport)
+        self.layout().setStretch(1, 1)
+
+    @property
+    def viewport(self):
+        return self._viewport
