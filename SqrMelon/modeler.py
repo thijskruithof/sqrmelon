@@ -513,7 +513,10 @@ class ModelerViewport(QOpenGLWidget):
                     self._modifierAxis = axis
                     self._modifyStartMouseScreenPos = self._convertMousePosToScreenPos(mouseEvent.localPos().x(), mouseEvent.localPos().y())
                     self._modifyStartModelTranslation = self._currentModelNode.translation
-                    self._modifyStartModelRotation = self._currentModelNode.rotation
+                    self._modifyStartModelRotationMatrix = \
+                        cgmath.Mat44.rotateZ(self._currentModelNode.rotation[2]) * \
+                        cgmath.Mat44.rotateY(self._currentModelNode.rotation[1]) * \
+                        cgmath.Mat44.rotateX(self._currentModelNode.rotation[0])
                     self._modifyStartModelSize = self._currentModelNode.size
                     self.update()
 
@@ -616,13 +619,13 @@ class ModelerViewport(QOpenGLWidget):
                 amount = deltaMouse[0]
 
                 if self._modifierAxis == ModifierAxis.X:
-                    axisDir = cgmath.Vec3(1.0,0.0,0.0)
+                    rot = cgmath.Mat44.rotateX(amount)
                 elif self._modifierAxis == ModifierAxis.Y:
-                    axisDir = cgmath.Vec3(0.0,1.0,0.0)
+                    rot = cgmath.Mat44.rotateY(amount)
                 else:
-                    axisDir = cgmath.Vec3(0.0,0.0,1.0)
+                    rot = cgmath.Mat44.rotateZ(amount)
 
-                self._currentModelNode.rotation = axisDir * amount + self._modifyStartModelRotation
+                self._currentModelNode.rotation = (rot * self._modifyStartModelRotationMatrix).eulerXYZ()
 
             # Dragging a scale modifier axis?
             elif self._modifierMode == ModifierMode.SCALE_NONUNIFORM and self._modifierAxis != ModifierAxis.NONE:

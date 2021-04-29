@@ -1,3 +1,5 @@
+import math
+
 from pycompat import *
 from math import sin, cos, tan, sqrt
 
@@ -295,6 +297,17 @@ class Mat44(object):
         for i in range(16):
             self._data[i] /= other
         return self
+
+    # https://www.geometrictools.com/Documentation/EulerAngles.pdf
+    def eulerXYZ(self):
+        data = self._fetchData()
+        if data[8] < 1.0:
+            if data[8] > -1.0:
+                return Vec3(math.atan2(-data[9], data[10]), math.asin(data[8]), math.atan2(-data[4], data[0]))
+            else:
+                return Vec3(-math.atan2(-data[1], data[5]), -math.pi*0.5, 0.0)
+        else:
+            return Vec3(math.atan2(data[1], data[5]), math.pi*0.5, 0.0)
 
     @staticmethod
     def rotateX(radians):

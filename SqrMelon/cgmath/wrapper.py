@@ -334,6 +334,17 @@ class Mat44(object):
         _dllHandle.Mat44_Inverse(self._ptr)
         self._data = None
 
+    # https://www.geometrictools.com/Documentation/EulerAngles.pdf
+    def eulerXYZ(self):
+        data = self._fetchData()
+        if data[8] < 1.0:
+            if data[8] > -1.0:
+                return Vec3(math.atan2(-data[9], data[10]), math.asin(data[8]), math.atan2(-data[4], data[0]))
+            else:
+                return Vec3(-math.atan2(-data[1], data[5]), -math.pi*0.5, 0.0)
+        else:
+            return Vec3(math.atan2(data[1], data[5]), math.pi*0.5, 0.0)
+
     def __mul__(self, other):
         if isinstance(other, VectorBase):
             return other.__class__(_dllHandle.Mat44_MultiplyVector(self._ptr, other._ptr))
@@ -437,3 +448,4 @@ class Mat44(object):
         assert primaryAxis in Axis.ALL
         assert secondaryAxis in Axis.ALL
         return Mat44(_dllHandle.Mat44_LookAt(position, target, upDirection, primaryAxis, secondaryAxis))
+
