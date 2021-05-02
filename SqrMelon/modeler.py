@@ -323,8 +323,7 @@ class ModelerViewport(QOpenGLWidget):
         return len(self._currentModelNodes) > 0
 
     def _getModifierMVP(self):
-        firstNode = next(iter(self._currentModelNodes))
-        modelTransform = firstNode.getModelTransform()
+        modelTransform = self._getCurrentMainModelNode().getModelTransform()
         modifierSize = 0.05 if self._modifierMode == ModifierMode.ROTATE else 0.10
 
         if self._modifierMode == ModifierMode.TRANSLATE:
@@ -519,16 +518,23 @@ class ModelerViewport(QOpenGLWidget):
                 axis = self._getMouseOnModifierAxis(mouseEvent.localPos().x(), mouseEvent.localPos().y())
 
                 if axis != ModifierAxis.NONE:
-                    firstNode = next(iter(self._currentModelNodes))
+                    node = self._getCurrentMainModelNode()
                     clickHandled = True
                     self._modifierAxis = axis
                     self._modifyStartMouseScreenPos = self._convertMousePosToScreenPos(mouseEvent.localPos().x(), mouseEvent.localPos().y())
-                    self._modifyStartModelTranslation = firstNode.translation
-                    self._modifyStartModelRotationMatrix = \
-                        cgmath.Mat44.rotateZ(firstNode.rotation[2]) * \
-                        cgmath.Mat44.rotateY(firstNode.rotation[1]) * \
-                        cgmath.Mat44.rotateX(firstNode.rotation[0])
-                    self._modifyStartModelSize = firstNode.size
+
+                    self._modifyStartModelTranslation = {}
+                    self._modifyStartModelRotationMatrix = {}
+                    self._modifyStartModelSize = {}
+
+                    for node in self._currentModelNodes:
+                        self._modifyStartModelTranslation[node] = node.translation
+                        self._modifyStartModelRotationMatrix[node] = \
+                            cgmath.Mat44.rotateZ(node.rotation[2]) * \
+                            cgmath.Mat44.rotateY(node.rotation[1]) * \
+                            cgmath.Mat44.rotateX(node.rotation[0])
+                        self._modifyStartModelSize[node] = node.size
+
                     self.update()
 
             # Did we otherwise click on a node of the model?
@@ -573,6 +579,9 @@ class ModelerViewport(QOpenGLWidget):
         v1 /= v1[3]
         a = v1 - v0
         return a.normalized()
+
+    def _getCurrentMainModelNode(self):
+        return next(iter(self._currentModelNodes))
 
     def mouseMoveEvent(self, mouseEvent):
         super(ModelerViewport, self).mouseMoveEvent(mouseEvent)
@@ -622,8 +631,8 @@ class ModelerViewport(QOpenGLWidget):
                 screenDir = self._getModifierAxisScreenDir(axisDir)
                 delta = screenDir[0]*deltaMouse[0] + screenDir[1]*deltaMouse[1]
 
-                firstNode = next(iter(self._currentModelNodes))
-                firstNode.translation = axisDir * delta + self._modifyStartModelTranslation
+                for node in self._currentModelNodes:
+                    node.translation = axisDir * delta + self._modifyStartModelTranslation[node]
 
             # Dragging a rotation modifier axis?
             if self._modifierMode == ModifierMode.ROTATE and self._modifierAxis != ModifierAxis.NONE:
@@ -637,8 +646,8 @@ class ModelerViewport(QOpenGLWidget):
                 else:
                     rot = cgmath.Mat44.rotateZ(amount)
 
-                firstNode = next(iter(self._currentModelNodes))
-                firstNode.rotation = (rot * self._modifyStartModelRotationMatrix).eulerXYZ()
+                for node in self._currentModelNodes:
+                    node.rotation = (rot * self._modifyStartModelRotationMatrix[node]).eulerXYZ()
 
             # Dragging a scale modifier axis?
             elif self._modifierMode == ModifierMode.SCALE_NONUNIFORM and self._modifierAxis != ModifierAxis.NONE:
@@ -653,8 +662,8 @@ class ModelerViewport(QOpenGLWidget):
                 screenDir = self._getModifierAxisScreenDir(axisDir)
                 delta = screenDir[0]*deltaMouse[0] + screenDir[1]*deltaMouse[1]
 
-                firstNode = next(iter(self._currentModelNodes))
-                firstNode.size = axisDir * delta * 0.5 + self._modifyStartModelSize
+                for node in self._currentModelNodes:
+                    node.size = axisDir * delta * 0.5 + self._modifyStartModelSize[node]
 
         self.update()
 
