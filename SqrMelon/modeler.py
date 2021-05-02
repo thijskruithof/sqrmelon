@@ -165,7 +165,7 @@ class ModelerViewport(QOpenGLWidget):
 
         self._models = models
         self._currentModel = None
-        self._currentModelNode = None
+        self._currentModelNodes = set()
 
         self._cameraTransform = cgmath.Mat44.translate(0, 0, -2)
         self._modelTransform =  cgmath.Mat44()
@@ -293,35 +293,38 @@ class ModelerViewport(QOpenGLWidget):
         self._primitives.draw(PrimitiveType.GRID)
 
         # Draw nodes
-        if not self._currentModel is None:
+        if self._currentModel is not None:
             # glLineWidth(2)
 
             # Put current model node at the end of the list
             nodes = list(self._currentModel.nodes)
-            if not self._currentModelNode is None:
-                nodes.remove(self._currentModelNode)
-                nodes.append(self._currentModelNode)
+            if len(self._currentModelNodes) > 0:
+                for node in self._currentModelNodes:
+                    nodes.remove(node)
+                for node in self._currentModelNodes:
+                    nodes.append(node)
 
             # Draw all nodes
             for node in nodes:
                 modelTransform = node.getModelTransform()
                 mvp = (modelTransform * self._viewTransform) * self._projection
                 glUniformMatrix4fv( self._uniform_mvp, 1, False, (ctypes.c_float * 16)(*mvp))
-                if node == self._currentModelNode:
+                if node in self._currentModelNodes:
                     glUniform4f(self._uniform_color, 1.0, 1.0, 0.0, 1.0)
                 else:
                     glUniform4f(self._uniform_color, 0.0, 0.0, 0.5, 1.0)
                 self._primitives.draw(PrimitiveType.CUBE)
 
-            # Draw our modifier for the current node?
-            if self._modifierMode != ModifierMode.SELECT and not self._currentModelNode is None:
+            # Draw our modifier?
+            if self._modifierMode != ModifierMode.SELECT and len(self._currentModelNodes) > 0:
                 self._drawModifier()
 
     def _isModifierVisible(self):
-        return not self._currentModelNode is None
+        return len(self._currentModelNodes) > 0
 
     def _getModifierMVP(self):
-        modelTransform = self._currentModelNode.getModelTransform()
+        firstNode = next(iter(self._currentModelNodes))
+        modelTransform = firstNode.getModelTransform()
         modifierSize = 0.05 if self._modifierMode == ModifierMode.ROTATE else 0.10
 
         if self._modifierMode == ModifierMode.TRANSLATE:
@@ -441,10 +444,17 @@ class ModelerViewport(QOpenGLWidget):
         centerPos = cgmath.Vec3(0.0, 0.0, 0.0)
         radius = 1.0
 
-        if self._currentModelNode != None:
-            bounds = self._currentModelNode.getBounds()
+        # Do we have any current nodes? If so, center view on them
+        if len(self._currentModelNodes) > 0:
+            bounds = None
+            for node in self._currentModelNodes:
+                if bounds is None:
+                    bounds = node.getBounds()
+                else:
+                    bounds.add(node.getBounds())
             centerPos = bounds.center
             radius = (bounds.max - centerPos).length
+        # Otherwise, is there a current model? If so, center view on it
         elif self._currentModel != None:
             bounds = self._currentModel.getBounds()
             centerPos = bounds.center
@@ -509,15 +519,16 @@ class ModelerViewport(QOpenGLWidget):
                 axis = self._getMouseOnModifierAxis(mouseEvent.localPos().x(), mouseEvent.localPos().y())
 
                 if axis != ModifierAxis.NONE:
+                    firstNode = next(iter(self._currentModelNodes))
                     clickHandled = True
                     self._modifierAxis = axis
                     self._modifyStartMouseScreenPos = self._convertMousePosToScreenPos(mouseEvent.localPos().x(), mouseEvent.localPos().y())
-                    self._modifyStartModelTranslation = self._currentModelNode.translation
+                    self._modifyStartModelTranslation = firstNode.translation
                     self._modifyStartModelRotationMatrix = \
-                        cgmath.Mat44.rotateZ(self._currentModelNode.rotation[2]) * \
-                        cgmath.Mat44.rotateY(self._currentModelNode.rotation[1]) * \
-                        cgmath.Mat44.rotateX(self._currentModelNode.rotation[0])
-                    self._modifyStartModelSize = self._currentModelNode.size
+                        cgmath.Mat44.rotateZ(firstNode.rotation[2]) * \
+                        cgmath.Mat44.rotateY(firstNode.rotation[1]) * \
+                        cgmath.Mat44.rotateX(firstNode.rotation[0])
+                    self._modifyStartModelSize = firstNode.size
                     self.update()
 
             # Did we otherwise click on a node of the model?
@@ -611,7 +622,8 @@ class ModelerViewport(QOpenGLWidget):
                 screenDir = self._getModifierAxisScreenDir(axisDir)
                 delta = screenDir[0]*deltaMouse[0] + screenDir[1]*deltaMouse[1]
 
-                self._currentModelNode.translation = axisDir * delta + self._modifyStartModelTranslation
+                firstNode = next(iter(self._currentModelNodes))
+                firstNode.translation = axisDir * delta + self._modifyStartModelTranslation
 
             # Dragging a rotation modifier axis?
             if self._modifierMode == ModifierMode.ROTATE and self._modifierAxis != ModifierAxis.NONE:
@@ -625,7 +637,8 @@ class ModelerViewport(QOpenGLWidget):
                 else:
                     rot = cgmath.Mat44.rotateZ(amount)
 
-                self._currentModelNode.rotation = (rot * self._modifyStartModelRotationMatrix).eulerXYZ()
+                firstNode = next(iter(self._currentModelNodes))
+                firstNode.rotation = (rot * self._modifyStartModelRotationMatrix).eulerXYZ()
 
             # Dragging a scale modifier axis?
             elif self._modifierMode == ModifierMode.SCALE_NONUNIFORM and self._modifierAxis != ModifierAxis.NONE:
@@ -640,7 +653,8 @@ class ModelerViewport(QOpenGLWidget):
                 screenDir = self._getModifierAxisScreenDir(axisDir)
                 delta = screenDir[0]*deltaMouse[0] + screenDir[1]*deltaMouse[1]
 
-                self._currentModelNode.size = axisDir * delta * 0.5 + self._modifyStartModelSize
+                firstNode = next(iter(self._currentModelNodes))
+                firstNode.size = axisDir * delta * 0.5 + self._modifyStartModelSize
 
         self.update()
 
@@ -695,9 +709,8 @@ class ModelerViewport(QOpenGLWidget):
             self.centerView()
 
     def setCurrentModelAndNodes(self, model, nodes):
-        node = next(iter(nodes)) if (nodes is not None and len(nodes) > 0) else None
         self._currentModel = model
-        self._currentModelNode = node
+        self._currentModelNodes = nodes
         self.update()
 
     def onModelChanged(self, model):
