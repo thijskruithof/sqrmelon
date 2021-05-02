@@ -126,7 +126,7 @@ class App(QMainWindowState):
         self.__models = Models()
         self.__modeler = modeler.Modeler(self.__models)
         self.__modelsOutliner = ModelsOutliner(self.__models)
-        self.__modelsOutliner.selectedModelNodeChanged.connect(self.__modeler.viewport.setModelNode)
+        self.__modelsOutliner.selectedModelNodeChanged.connect(self.__modeler.viewport.setCurrentModelAndNodes)
         self.__models.modelChanged.connect(self.__modeler.viewport.onModelChanged)
         self.__models.modelChanged.connect(self._scheduleModelExport)
         self.__modeler.viewport.selectedModelNodeChanged.connect(self.__modelsOutliner.selectModelNode)

@@ -694,7 +694,8 @@ class ModelerViewport(QOpenGLWidget):
         elif event.key() == Qt.Key_F:
             self.centerView()
 
-    def setModelNode(self, model, node):
+    def setCurrentModelAndNodes(self, model, nodes):
+        node = next(iter(nodes)) if (nodes is not None and len(nodes) > 0) else None
         self._currentModel = model
         self._currentModelNode = node
         self.update()

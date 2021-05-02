@@ -136,6 +136,7 @@ class ModelsOutliner(QWidget):
         self._tree = QTreeView(self)
         self._tree.setModel(self._model)
         self._tree.setHeaderHidden(True)
+        self._tree.setSelectionMode(QAbstractItemView.ExtendedSelection)
 
         self.layout().addLayout(toolbar)
         self.layout().addWidget(self._tree)
@@ -145,15 +146,18 @@ class ModelsOutliner(QWidget):
         self._tree.customContextMenuRequested.connect(self._onContextMenu)
 
         self._contextMenuModel = QMenu()
-        self._contextMenuModel.addAction(icons.get('rename-48'), 'Rename').triggered.connect(self._onRenameModelOrNode)
+        self._contextMenuModelRenameAction = self._contextMenuModel.addAction(icons.get('rename-48'), 'Rename')
+        self._contextMenuModelRenameAction.triggered.connect(self._onRenameModelOrNode)
         self._contextMenuModel.addAction(icons.get('duplicate-48'), 'Duplicate').triggered.connect(self._onDuplicateModelOrNode)
         self._contextMenuModel.addSeparator()
-        self._contextMenuModel.addAction(icons.get('box-48'), 'Add box').triggered.connect(self._onAddBox)
+        self._contextMenuModelAddBoxAction = self._contextMenuModel.addAction(icons.get('box-48'), 'Add box')
+        self._contextMenuModelAddBoxAction.triggered.connect(self._onAddBox)
         self._contextMenuModel.addSeparator()
         self._contextMenuModel.addAction(icons.get('delete-48'), 'Delete').triggered.connect(self._onDeleteModelOrNode)
 
         self._contextMenuModelNode = QMenu()
-        self._contextMenuModelNode.addAction(icons.get('rename-48'), 'Rename').triggered.connect(self._onRenameModelOrNode)
+        self._contextMenuModelNodeRenameAction = self._contextMenuModelNode.addAction(icons.get('rename-48'), 'Rename')
+        self._contextMenuModelNodeRenameAction.triggered.connect(self._onRenameModelOrNode)
         self._contextMenuModelNode.addAction(icons.get('duplicate-48'), 'Duplicate').triggered.connect(self._onDuplicateModelOrNode)
         self._contextMenuModelNode.addSeparator()
         self._contextMenuModelNode.addAction(icons.get('arrow-up-48'), 'Move up').triggered.connect(self._onMoveUpNode)
@@ -163,43 +167,70 @@ class ModelsOutliner(QWidget):
         self._contextMenuModelNode.addSeparator()
         self._contextMenuModelNode.addAction(icons.get('delete-48'), 'Delete').triggered.connect(self._onDeleteModelOrNode)
 
-    def _getSelectedModelAndNode(self):
-        # Find out which model or modelnode is selected
+    def _getSelectedModelNodes(self, model):
+        result = set()
+        if model is None:
+            return result
+
+        indexes = self._tree.selectedIndexes()
+        for index in indexes:
+            if (index is not None) and (index.isValid()):
+                data = index.internalPointer()
+                if isinstance(data, ModelNodeBase) and data.model == model:
+                    result.add(data)
+        return result
+
+    def _getCurrentModel(self):
+        # Find out which model is selected
         index = self._tree.currentIndex()
         if (index is None) or not index.isValid():
-            return [ None, None ]
+            return None
         data = index.internalPointer()
         if isinstance(data, Model):
-            return [ data, None ]
+            return data
         if isinstance(data, ModelNodeBase):
-            return [ data.model, data ]
-        return [ None, None ]
+            return data.model
+        return None
 
     def _onSelectionChanged(self, selected, deselected):
-        modelAndNode = self._getSelectedModelAndNode()
-        self.selectedModelNodeChanged.emit(modelAndNode[0], modelAndNode[1])
+        model = self._getCurrentModel()
+        modelNodes = self._getSelectedModelNodes(model)
+        self.selectedModelNodeChanged.emit(model, modelNodes)
 
     def _onContextMenu(self, position):
-        index = self._tree.currentIndex()
-        if index.isValid():
-            data = index.internalPointer()
-            if isinstance(data, Model):
-                self._contextMenuModel.popup(self.mapToGlobal(position))
-            if isinstance(data, ModelNodeBase):
-                self._contextMenuModelNode.popup(self.mapToGlobal(position))
+        numSelectedModels = 0
+        numSelectedModelNodes = 0
+        for index in self._tree.selectedIndexes():
+            if index.isValid():
+                data = index.internalPointer()
+                if isinstance(data, Model):
+                    numSelectedModels += 1
+                if isinstance(data, ModelNodeBase):
+                    numSelectedModelNodes += 1
+        if numSelectedModels > 0 and numSelectedModelNodes > 0:
+            # If we have both a model and a node selected, we won't show a context menu
+            return
+
+        if numSelectedModels > 0:
+            self._contextMenuModelRenameAction.setEnabled(numSelectedModels == 1)
+            self._contextMenuModelAddBoxAction.setEnabled(numSelectedModels == 1)
+            self._contextMenuModel.popup(self.mapToGlobal(position))
+        elif numSelectedModelNodes > 0:
+            self._contextMenuModelNodeRenameAction.setEnabled(numSelectedModelNodes == 1)
+            self._contextMenuModelNode.popup(self.mapToGlobal(position))
 
     def _onAddBox(self):
-        model = self._getSelectedModelAndNode()[0]
+        model = self._getCurrentModel()
         model.addBox()
 
     def _onDeleteModelOrNode(self):
-        index = self._tree.currentIndex()
-        if index.isValid():
-            data = index.internalPointer()
-            if isinstance(data, ModelNodeBase):
-                data.model.removeNode(data)
-            if isinstance(data, Model):
-                self._models.removeModel(data)
+        for index in reversed(self._tree.selectedIndexes()):
+            if index.isValid():
+                data = index.internalPointer()
+                if isinstance(data, ModelNodeBase):
+                    data.model.removeNode(data)
+                if isinstance(data, Model):
+                    self._models.removeModel(data)
 
     def _onRenameModelOrNode(self):
         index = self._tree.currentIndex()
@@ -210,28 +241,31 @@ class ModelsOutliner(QWidget):
                 data.name = str(text)
 
     def _onDuplicateModelOrNode(self):
-        index = self._tree.currentIndex()
-        if index.isValid():
-            data = index.internalPointer()
-            data.duplicate()
+        for index in self._tree.selectedIndexes():
+            if index.isValid():
+                data = index.internalPointer()
+                data.duplicate()
+        self._tree.clearSelection()
 
     def _onToggleAdditiveSubtractive(self):
-        index = self._tree.currentIndex()
-        if index.isValid():
-            data = index.internalPointer()
-            data.subtractive = not data.subtractive
+        for index in self._tree.selectedIndexes():
+            if index.isValid():
+                data = index.internalPointer()
+                data.subtractive = not data.subtractive
 
     def _onMoveUpNode(self):
-        index = self._tree.currentIndex()
-        if index.isValid():
-            data = index.internalPointer()
-            data.move(-1)
+        for index in self._tree.selectedIndexes():
+            if index.isValid():
+                data = index.internalPointer()
+                data.move(-1)
+        self._tree.clearSelection()
 
     def _onMoveDownNode(self):
-        index = self._tree.currentIndex()
-        if index.isValid():
-            data = index.internalPointer()
-            data.move(1)
+        for index in reversed(self._tree.selectedIndexes()):
+            if index.isValid():
+                data = index.internalPointer()
+                data.move(1)
+        self._tree.clearSelection()
 
     def _onAddModel(self):
         self._models.addModel()
