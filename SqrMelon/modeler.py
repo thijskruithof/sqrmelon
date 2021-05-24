@@ -184,11 +184,9 @@ class Primitives:
 
     # Determine if the projection of a primitive of a given type with the given mvp would intersect with the specified rectangle.
     def intersectsRect2D(self, primitiveType, mvp, rectP0, rectP1):
-        p0 = mathutil.Vec2(min(rectP0[0], rectP1[0]), min(rectP0[1], rectP1[1]))
-        p1 = mathutil.Vec2(max(rectP0[0], rectP1[0]), max(rectP0[1], rectP1[1]))
         firstVertexIndex = self._firstVertexIndex[primitiveType]
         for vertexIndex in range(firstVertexIndex, firstVertexIndex + self._numVertices[primitiveType], 2):
-            if self._edgeIntersectsRect2D(mvp, p0, p1, vertexIndex, vertexIndex+1):
+            if self._edgeIntersectsRect2D(mvp, rectP0, rectP1, vertexIndex, vertexIndex+1):
                 return True
         return False
 
@@ -491,27 +489,11 @@ class ModelerViewport(QOpenGLWidget):
 
         return ModifierAxis.NONE
 
-    # Determine which model node the given mouse position is overlapping with.
-    def _getModelNodeAtScreenPos(self, screenPos):
-        if self._currentModel is None:
-            return None
-
-        nodes = list(self._currentModel.nodes)
-
-        for node in nodes:
-            modelTransform = node.getModelTransform()
-            mvp = (modelTransform * self._viewTransform) * self._projection
-
-            if self._primitives.isMouseOn(PrimitiveType.CUBE, mvp, screenPos, self._minMouseClickDistSq):
-                return node
-
-        return None
-
     def _getModelNodesUnderScreenRect(self, rectP0, rectP1):
 
         if self._currentModel is None:
             return None
-
+        
         overlappingNodes = []
         nodes = list(self._currentModel.nodes)
 
@@ -779,12 +761,22 @@ class ModelerViewport(QOpenGLWidget):
         # Selecting?
         elif self._selecting:
             self._selecting = False
-            if (self._selectCurrentMouseScreenPos - self._selectStartMouseScreenPos).lengthSq > 0.0:
-                newSelectedNodes = self._getModelNodesUnderScreenRect(self._selectStartMouseScreenPos, self._selectCurrentMouseScreenPos)
-            else:
-                screenPos = self._convertMousePosToScreenPos(mouseEvent.localPos().x(), mouseEvent.localPos().y())
-                selectedNode = self._getModelNodeAtScreenPos(screenPos)
-                newSelectedNodes = [ selectedNode ] if selectedNode is not None else None
+
+            # Create rect with P0 is min (bottom left) and P1 is max (top right)
+            rectP0 = mathutil.Vec2(min(self._selectStartMouseScreenPos[0], self._selectCurrentMouseScreenPos[0]), min(self._selectStartMouseScreenPos[1], self._selectCurrentMouseScreenPos[1]))
+            rectP1 = mathutil.Vec2(max(self._selectStartMouseScreenPos[0], self._selectCurrentMouseScreenPos[0]), max(self._selectStartMouseScreenPos[1], self._selectCurrentMouseScreenPos[1]))
+
+            # Enforce minimum size of selection rect
+            minRectSize = 2.0*math.sqrt(self._minMouseClickDistSq)
+            rectSize = rectP1 - rectP0
+            if abs(rectSize[0]) < minRectSize:
+                rectP0[0] -= 0.5*(minRectSize - rectSize[0])
+                rectP1[0] += 0.5*(minRectSize - rectSize[0])
+            if abs(rectSize[1]) < minRectSize:
+                rectP0[1] -= 0.5*(minRectSize - rectSize[1])
+                rectP1[1] += 0.5*(minRectSize - rectSize[1])
+
+            newSelectedNodes = self._getModelNodesUnderScreenRect(rectP0, rectP1)
 
             self.selectedModelNodesChanged.emit(self._currentModel, newSelectedNodes)
             self.update()
