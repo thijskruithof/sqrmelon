@@ -493,7 +493,7 @@ class ModelerViewport(QOpenGLWidget):
 
         if self._currentModel is None:
             return None
-        
+
         overlappingNodes = []
         nodes = list(self._currentModel.nodes)
 
@@ -767,16 +767,39 @@ class ModelerViewport(QOpenGLWidget):
             rectP1 = mathutil.Vec2(max(self._selectStartMouseScreenPos[0], self._selectCurrentMouseScreenPos[0]), max(self._selectStartMouseScreenPos[1], self._selectCurrentMouseScreenPos[1]))
 
             # Enforce minimum size of selection rect
+            boxSelect = False
             minRectSize = 2.0*math.sqrt(self._minMouseClickDistSq)
             rectSize = rectP1 - rectP0
             if abs(rectSize[0]) < minRectSize:
                 rectP0[0] -= 0.5*(minRectSize - rectSize[0])
                 rectP1[0] += 0.5*(minRectSize - rectSize[0])
+            else:
+                boxSelect = True
             if abs(rectSize[1]) < minRectSize:
                 rectP0[1] -= 0.5*(minRectSize - rectSize[1])
                 rectP1[1] += 0.5*(minRectSize - rectSize[1])
+            else:
+                boxSelect = True
 
             newSelectedNodes = self._getModelNodesUnderScreenRect(rectP0, rectP1)
+
+            modifiers = QApplication.keyboardModifiers()
+
+            # By holding Shift, the selection is extended instead of replaced.
+            # (And by holding shift and clicking on a single item, that item can be excluded as well)
+            if modifiers == Qt.ShiftModifier:
+                if boxSelect:
+                    for node in self._currentModelNodes:
+                        if node not in newSelectedNodes:
+                            newSelectedNodes.append(node)
+                else:
+                    clickedNodes = newSelectedNodes
+                    newSelectedNodes = list(self._currentModelNodes)
+                    for clickedNode in clickedNodes:
+                        if clickedNode in newSelectedNodes:
+                            newSelectedNodes.remove(clickedNode)
+                        else:
+                            newSelectedNodes.append(clickedNode)
 
             self.selectedModelNodesChanged.emit(self._currentModel, newSelectedNodes)
             self.update()
