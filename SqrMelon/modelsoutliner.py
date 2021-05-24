@@ -112,7 +112,7 @@ class ModelsOutliner(QWidget):
     """
     Models outliner window
     """
-    selectedModelNodeChanged = pyqtSignal(object, object)
+    selectedModelNodesChanged = pyqtSignal(object, object)
 
     def __init__(self, models):
         super(ModelsOutliner, self).__init__()
@@ -195,7 +195,7 @@ class ModelsOutliner(QWidget):
     def _onSelectionChanged(self, selected, deselected):
         model = self._getCurrentModel()
         modelNodes = self._getSelectedModelNodes(model)
-        self.selectedModelNodeChanged.emit(model, modelNodes)
+        self.selectedModelNodesChanged.emit(model, modelNodes)
 
     def _onContextMenu(self, position):
         numSelectedModels = 0
@@ -270,16 +270,20 @@ class ModelsOutliner(QWidget):
     def _onAddModel(self):
         self._models.addModel()
 
-    # Force select a specific Model and ModelNode.
+    # Force select a specific Model and its ModelNodes.
     # Used by the modeler when clicking a model node
-    def selectModelNode(self, model, modelNode):
-        if not model is None:
+    def selectModelNodes(self, model, modelNodes):
+        if model is not None:
             modelItem = self._model.index(self._models.models.index(model), 0)
-            if modelNode is None:
+            if modelNodes is None or len(modelNodes) == 0:
                 self._tree.setCurrentIndex(modelItem)
             else:
-                modelNodeItem = self._model.index(model.nodes.index(modelNode), 0, modelItem)
-                self._tree.setCurrentIndex(modelNodeItem)
+                self._tree.selectionModel().clearSelection()
+                for node in modelNodes:
+                    modelIndex = self._model.index(model.nodes.index(node), 0, modelItem)
+                    self._tree.selectionModel().select(modelIndex, QItemSelectionModel.Select)
+                # modelNodeItem = self._model.index(model.nodes.index(modelNodes[0]), 0, modelItem)
+                # self._tree.setCurrentIndex(modelNodeItem)
         else:
             self._tree.setCurrentIndex(QModelIndex())
 

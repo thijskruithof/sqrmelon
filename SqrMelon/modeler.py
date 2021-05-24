@@ -13,17 +13,18 @@ from xmlutil import vec3ToXmlAttrib, xmlAttribToVec3
 import icons
 
 class PrimitiveType:
-    GRID = 0    # Grid in XZ plane
-    CUBE = 1    # Unit cube (-1..1)
-    ARROW = 2   # Arrow (on X axis), length 1
-    LINE = 3    # Line (on X axis), length 1
-    CIRCLE = 4  # Circle in YZ plane, radius 1
+    GRID = 0        # Grid in XZ plane
+    CUBE = 1        # Unit cube (-1..1)
+    ARROW = 2       # Arrow (on X axis), length 1
+    LINE = 3        # Line (on X axis), length 1
+    CIRCLE = 4      # Circle in YZ plane, radius 1
+    SCREEN_RECT = 5 # Rectangle on screen (0, 0) - (1, 1)
 
 class Primitives:
     def __init__(self):
         self._vertex_data = []
-        self._firstVertexIndex = [ 0, 0, 0, 0, 0 ]
-        self._numVertices = [ 0, 0, 0, 0, 0 ]
+        self._firstVertexIndex = [ 0, 0, 0, 0, 0, 0 ]
+        self._numVertices = [ 0, 0, 0, 0, 0, 0 ]
 
         numGridLines = 20
         gridSpacing = 0.25
@@ -88,7 +89,17 @@ class Primitives:
         self._firstVertexIndex[PrimitiveType.CIRCLE] = self._firstVertexIndex[PrimitiveType.LINE] + self._numVertices[PrimitiveType.LINE]
         self._numVertices[PrimitiveType.CIRCLE] = len(self._vertex_data)//3 - self._firstVertexIndex[PrimitiveType.CIRCLE]
 
-
+        # Construct a screen rect (0,0) - (1,1)
+        self._vertex_data.extend([0.0, 0.0, 0.0])   # BL
+        self._vertex_data.extend([1.0, 0.0, 0.0])   # BR
+        self._vertex_data.extend([1.0, 0.0, 0.0])   # BR
+        self._vertex_data.extend([1.0, 1.0, 0.0])   # TR
+        self._vertex_data.extend([1.0, 1.0, 0.0])   # TR
+        self._vertex_data.extend([0.0, 1.0, 0.0])   # TL
+        self._vertex_data.extend([0.0, 1.0, 0.0])   # TL
+        self._vertex_data.extend([0.0, 0.0, 0.0])   # BL
+        self._firstVertexIndex[PrimitiveType.SCREEN_RECT] = self._firstVertexIndex[PrimitiveType.CIRCLE] + self._numVertices[PrimitiveType.CIRCLE]
+        self._numVertices[PrimitiveType.SCREEN_RECT] = len(self._vertex_data)//3 - self._firstVertexIndex[PrimitiveType.SCREEN_RECT]
 
     @property
     def vertexData(self):
@@ -98,7 +109,7 @@ class Primitives:
         glDrawArrays(GL_LINES, self._firstVertexIndex[primitiveType], self._numVertices[primitiveType])
         return
 
-    def _getSqDistanceToLine(self, mvp, mousePos, vertexIndex0, vertexIndex1):
+    def _projectEdgeVertices(self, mvp, vertexIndex0, vertexIndex1):
         v0 = cgmath.Vec4(self._vertex_data[vertexIndex0 * 3], self._vertex_data[vertexIndex0 * 3 + 1],
                          self._vertex_data[vertexIndex0 * 3 + 2], 1.0)
         v1 = cgmath.Vec4(self._vertex_data[vertexIndex1 * 3 ], self._vertex_data[vertexIndex1 * 3 + 1],
@@ -111,19 +122,24 @@ class Primitives:
         v1x = v1[0] / v1[3]
         v1y = v1[1] / v1[3]
 
-        v1v0x = v1x - v0x
-        v1v0y = v1y - v0y
+        return mathutil.Vec2(v0x, v0y), mathutil.Vec2(v1x, v1y)
+
+    def _getSqDistanceToLine(self, mvp, mousePos, vertexIndex0, vertexIndex1):
+        v0, v1 = self._projectEdgeVertices(mvp, vertexIndex0, vertexIndex1)
+
+        v1v0x = v1.x - v0.x
+        v1v0y = v1.y - v0.y
         len = v1v0x*v1v0x + v1v0y*v1v0y
 
         if len <= 0.00001:
             # Line has length of nearly 0
-            return (mousePos[0] - v0x)*(mousePos[0] - v0x) + (mousePos[1] - v0y)*(mousePos[1] - v0y)
+            return (mousePos[0] - v0.x)*(mousePos[0] - v0.x) + (mousePos[1] - v0.y)*(mousePos[1] - v0.y)
 
-        t = ((mousePos[0] - v0x)*v1v0x + (mousePos[1] - v0y) * v1v0y) / len
+        t = ((mousePos[0] - v0.x)*v1v0x + (mousePos[1] - v0.y) * v1v0y) / len
         t = max(0.0, min(1.0, t))
 
-        px = v0x + t * v1v0x
-        py = v0y + t * v1v0y
+        px = v0.x + t * v1v0x
+        py = v0.y + t * v1v0y
 
         distSq = (mousePos[0] - px)*(mousePos[0] - px) + (mousePos[1] - py)*(mousePos[1] - py)
         return distSq
@@ -132,6 +148,47 @@ class Primitives:
         firstVertexIndex = self._firstVertexIndex[primitiveType]
         for vertexIndex in range(firstVertexIndex, firstVertexIndex+self._numVertices[primitiveType], 2):
             if self._getSqDistanceToLine(mvp, mouseScreenPos, vertexIndex, vertexIndex+1) <= minMouseDistSq:
+                return True
+        return False
+
+    # Rough implementation of Liang-Barsky's line-box intersection algorithm
+    def _edgeClip2D(self, num, denom, c):
+        if abs(denom) < 0.000001:
+            return num < 0
+        t = num/denom
+        if denom > 0:
+            if t > c.y:
+                return False
+            if t > c.x:
+                c.x = t
+        else:
+            if t < c.x:
+                return False
+            if t < c.y:
+                c.y = t
+        return True
+
+    def _edgeIntersectsRect2D(self, mvp, rectP0, rectP1, vertexIndex0, vertexIndex1):
+        v0, v1 = self._projectEdgeVertices(mvp, vertexIndex0, vertexIndex1)
+        dx = v1.x - v0.x
+        dy = v1.y - v0.y
+
+        # Single point, inside?
+        if abs(dx) < 0.000001 and abs(dy) < 0.000001 and \
+            v0.x >= rectP0.x and v0.x <= rectP1.x and v0.y >= rectP0.y and v0.y <= rectP1.y:
+            return True
+
+        c = mathutil.Vec2(0.0, 1.0)
+        return self._edgeClip2D(rectP0.x - v0.x, dx, c) and self._edgeClip2D(v0.x - rectP1.x, -dx, c) and \
+               self._edgeClip2D(rectP0.y - v0.y, dy, c) and self._edgeClip2D(v0.y - rectP1.y, -dy, c)
+
+    # Determine if the projection of a primitive of a given type with the given mvp would intersect with the specified rectangle.
+    def intersectsRect2D(self, primitiveType, mvp, rectP0, rectP1):
+        p0 = mathutil.Vec2(min(rectP0[0], rectP1[0]), min(rectP0[1], rectP1[1]))
+        p1 = mathutil.Vec2(max(rectP0[0], rectP1[0]), max(rectP0[1], rectP1[1]))
+        firstVertexIndex = self._firstVertexIndex[primitiveType]
+        for vertexIndex in range(firstVertexIndex, firstVertexIndex + self._numVertices[primitiveType], 2):
+            if self._edgeIntersectsRect2D(mvp, p0, p1, vertexIndex, vertexIndex+1):
                 return True
         return False
 
@@ -148,7 +205,7 @@ class ModifierMode:
     SCALE_NONUNIFORM = 3
 
 class ModelerViewport(QOpenGLWidget):
-    selectedModelNodeChanged = pyqtSignal(object, object)
+    selectedModelNodesChanged = pyqtSignal(object, object)
     modifierModeChanged = pyqtSignal(object)
 
     """
@@ -174,6 +231,8 @@ class ModelerViewport(QOpenGLWidget):
         self._cameraPivot = cgmath.Vec3(0.0,0.0,0.0)
         self._adjustingCamera = False
         self._adjustCameraMode = 0
+
+        self._selecting = False
 
         self._modifierMode = ModifierMode.SELECT
         self._modifierAxis = ModifierAxis.NONE
@@ -319,6 +378,10 @@ class ModelerViewport(QOpenGLWidget):
             if self._modifierMode != ModifierMode.SELECT and len(self._currentModelNodes) > 0:
                 self._drawModifier()
 
+        # Draw selection rect
+        if self._selecting and (self._selectCurrentMouseScreenPos - self._selectStartMouseScreenPos).lengthSq > 0.0:
+            self._drawSelectionRect()
+
     def _isModifierVisible(self):
         return len(self._currentModelNodes) > 0
 
@@ -383,6 +446,15 @@ class ModelerViewport(QOpenGLWidget):
             glUniform4f(self._uniform_color, 0.0, 0.0, 1.0, 1.0)
         self._primitives.draw(primitiveType)
 
+    # Draw a rectangle for the selection
+    def _drawSelectionRect(self):
+        mvp = cgmath.Mat44.scale(self._selectCurrentMouseScreenPos[0] - self._selectStartMouseScreenPos[0], self._selectCurrentMouseScreenPos[1] - self._selectStartMouseScreenPos[1], 1.0) * \
+            cgmath.Mat44.translate(self._selectStartMouseScreenPos[0], self._selectStartMouseScreenPos[1], 0.0)
+
+        glUniformMatrix4fv(self._uniform_mvp, 1, False, (ctypes.c_float * 16)(*mvp))
+        glUniform4f(self._uniform_color, 1.0, 0.9, 0.05, 1.0)
+        self._primitives.draw(PrimitiveType.SCREEN_RECT)
+
     def _convertMousePosToScreenPos(self, mousePosX, mousePosY):
         screenX = (mousePosX / self.width()) * 2.0 - 1.0
         screenY = ((mousePosY / self.height()) * -2.0 + 1.0)
@@ -420,9 +492,7 @@ class ModelerViewport(QOpenGLWidget):
         return ModifierAxis.NONE
 
     # Determine which model node the given mouse position is overlapping with.
-    def _getMouseOnModelNode(self, mousePosX, mousePosY):
-        screenPos = self._convertMousePosToScreenPos(mousePosX, mousePosY)
-
+    def _getModelNodeAtScreenPos(self, screenPos):
         if self._currentModel is None:
             return None
 
@@ -436,6 +506,23 @@ class ModelerViewport(QOpenGLWidget):
                 return node
 
         return None
+
+    def _getModelNodesUnderScreenRect(self, rectP0, rectP1):
+
+        if self._currentModel is None:
+            return None
+
+        overlappingNodes = []
+        nodes = list(self._currentModel.nodes)
+
+        for node in nodes:
+            modelTransform = node.getModelTransform()
+            mvp = (modelTransform * self._viewTransform) * self._projection
+
+            if self._primitives.intersectsRect2D(PrimitiveType.CUBE, mvp, rectP0, rectP1):
+                overlappingNodes.append(node)
+
+        return overlappingNodes
 
     # Center our view on the selection
     # If there's no selection we'll center the view on the whole model
@@ -537,12 +624,12 @@ class ModelerViewport(QOpenGLWidget):
 
                     self.update()
 
-            # Did we otherwise click on a node of the model?
-            if not self._currentModel is None and not clickHandled:
+            # Otherwise update our selection
+            if self._currentModel is not None and not clickHandled:
                 clickHandled = True
-                newSelectedNode = self._getMouseOnModelNode(mouseEvent.localPos().x(), mouseEvent.localPos().y())
-                self.selectedModelNodeChanged.emit(self._currentModel, newSelectedNode)
-
+                self._selecting = True
+                self._selectStartMouseScreenPos = self._convertMousePosToScreenPos(mouseEvent.localPos().x(), mouseEvent.localPos().y())
+                self._selectCurrentMouseScreenPos = cgmath.Vec4(self._selectStartMouseScreenPos)
 
     # Create a rotation matrix from an axis and an angle
     # Somehow the one from cgmath.Mat44 wasn't correct (for me)
@@ -616,54 +703,56 @@ class ModelerViewport(QOpenGLWidget):
                 deltaMouse = mathutil.Vec2(mouseEvent.localPos().x(), mouseEvent.localPos().y()) - self._adjustCameraStartMousePos
                 self._cameraTransform = cgmath.Mat44.translate(0.0, 0.0, deltaMouse[1] * zoomSpeed) * self._adjustCameraStartCamera
 
-        # Dragging?
-        else:
-            # Dragging a translation modifier axis?
-            if self._modifierMode == ModifierMode.TRANSLATE and self._modifierAxis != ModifierAxis.NONE:
-                deltaMouse = self._convertMousePosToScreenPos(mouseEvent.localPos().x(), mouseEvent.localPos().y()) - self._modifyStartMouseScreenPos
-                if self._modifierAxis == ModifierAxis.X:
-                    axisDir = cgmath.Vec3(1.0,0.0,0.0)
-                elif self._modifierAxis == ModifierAxis.Y:
-                    axisDir = cgmath.Vec3(0.0,1.0,0.0)
-                else:
-                    axisDir = cgmath.Vec3(0.0,0.0,1.0)
+        # Dragging a translation modifier axis?
+        elif self._modifierMode == ModifierMode.TRANSLATE and self._modifierAxis != ModifierAxis.NONE:
+            deltaMouse = self._convertMousePosToScreenPos(mouseEvent.localPos().x(), mouseEvent.localPos().y()) - self._modifyStartMouseScreenPos
+            if self._modifierAxis == ModifierAxis.X:
+                axisDir = cgmath.Vec3(1.0,0.0,0.0)
+            elif self._modifierAxis == ModifierAxis.Y:
+                axisDir = cgmath.Vec3(0.0,1.0,0.0)
+            else:
+                axisDir = cgmath.Vec3(0.0,0.0,1.0)
 
-                screenDir = self._getModifierAxisScreenDir(axisDir)
-                delta = screenDir[0]*deltaMouse[0] + screenDir[1]*deltaMouse[1]
+            screenDir = self._getModifierAxisScreenDir(axisDir)
+            delta = screenDir[0]*deltaMouse[0] + screenDir[1]*deltaMouse[1]
 
-                for node in self._currentModelNodes:
-                    node.translation = axisDir * delta + self._modifyStartModelTranslation[node]
+            for node in self._currentModelNodes:
+                node.translation = axisDir * delta + self._modifyStartModelTranslation[node]
 
-            # Dragging a rotation modifier axis?
-            if self._modifierMode == ModifierMode.ROTATE and self._modifierAxis != ModifierAxis.NONE:
-                deltaMouse = self._convertMousePosToScreenPos(mouseEvent.localPos().x(), mouseEvent.localPos().y()) - self._modifyStartMouseScreenPos
-                amount = deltaMouse[0]
+        # Dragging a rotation modifier axis?
+        elif self._modifierMode == ModifierMode.ROTATE and self._modifierAxis != ModifierAxis.NONE:
+            deltaMouse = self._convertMousePosToScreenPos(mouseEvent.localPos().x(), mouseEvent.localPos().y()) - self._modifyStartMouseScreenPos
+            amount = deltaMouse[0]
 
-                if self._modifierAxis == ModifierAxis.X:
-                    rot = cgmath.Mat44.rotateX(amount)
-                elif self._modifierAxis == ModifierAxis.Y:
-                    rot = cgmath.Mat44.rotateY(amount)
-                else:
-                    rot = cgmath.Mat44.rotateZ(amount)
+            if self._modifierAxis == ModifierAxis.X:
+                rot = cgmath.Mat44.rotateX(amount)
+            elif self._modifierAxis == ModifierAxis.Y:
+                rot = cgmath.Mat44.rotateY(amount)
+            else:
+                rot = cgmath.Mat44.rotateZ(amount)
 
-                for node in self._currentModelNodes:
-                    node.rotation = (rot * self._modifyStartModelRotationMatrix[node]).eulerXYZ()
+            for node in self._currentModelNodes:
+                node.rotation = (rot * self._modifyStartModelRotationMatrix[node]).eulerXYZ()
 
-            # Dragging a scale modifier axis?
-            elif self._modifierMode == ModifierMode.SCALE_NONUNIFORM and self._modifierAxis != ModifierAxis.NONE:
-                deltaMouse = self._convertMousePosToScreenPos(mouseEvent.localPos().x(), mouseEvent.localPos().y()) - self._modifyStartMouseScreenPos
-                if self._modifierAxis == ModifierAxis.X:
-                    axisDir = cgmath.Vec3(1.0,0.0,0.0)
-                elif self._modifierAxis == ModifierAxis.Y:
-                    axisDir = cgmath.Vec3(0.0,1.0,0.0)
-                else:
-                    axisDir = cgmath.Vec3(0.0,0.0,1.0)
+        # Dragging a scale modifier axis?
+        elif self._modifierMode == ModifierMode.SCALE_NONUNIFORM and self._modifierAxis != ModifierAxis.NONE:
+            deltaMouse = self._convertMousePosToScreenPos(mouseEvent.localPos().x(), mouseEvent.localPos().y()) - self._modifyStartMouseScreenPos
+            if self._modifierAxis == ModifierAxis.X:
+                axisDir = cgmath.Vec3(1.0,0.0,0.0)
+            elif self._modifierAxis == ModifierAxis.Y:
+                axisDir = cgmath.Vec3(0.0,1.0,0.0)
+            else:
+                axisDir = cgmath.Vec3(0.0,0.0,1.0)
 
-                screenDir = self._getModifierAxisScreenDir(axisDir)
-                delta = screenDir[0]*deltaMouse[0] + screenDir[1]*deltaMouse[1]
+            screenDir = self._getModifierAxisScreenDir(axisDir)
+            delta = screenDir[0]*deltaMouse[0] + screenDir[1]*deltaMouse[1]
 
-                for node in self._currentModelNodes:
-                    node.size = axisDir * delta * 0.5 + self._modifyStartModelSize[node]
+            for node in self._currentModelNodes:
+                node.size = axisDir * delta * 0.5 + self._modifyStartModelSize[node]
+
+        # Selecting nodes?
+        elif self._selecting:
+            self._selectCurrentMouseScreenPos = self._convertMousePosToScreenPos(mouseEvent.localPos().x(), mouseEvent.localPos().y())
 
         self.update()
 
@@ -682,11 +771,24 @@ class ModelerViewport(QOpenGLWidget):
             elif self._adjustCameraMode == 2:
                 self._adjustingCamera = (mouseEvent.buttons() & Qt.RightButton)
 
-        # Unclicked?
-        else:
-            if self._modifierMode != ModifierMode.SELECT:
-                self._modifierAxis = ModifierAxis.NONE
-                self.update()
+        # Adjusting modifier?
+        elif self._modifierMode != ModifierMode.SELECT and self._modifierAxis != ModifierAxis.NONE:
+            self._modifierAxis = ModifierAxis.NONE
+            self.update()
+
+        # Selecting?
+        elif self._selecting:
+            self._selecting = False
+            if (self._selectCurrentMouseScreenPos - self._selectStartMouseScreenPos).lengthSq > 0.0:
+                newSelectedNodes = self._getModelNodesUnderScreenRect(self._selectStartMouseScreenPos, self._selectCurrentMouseScreenPos)
+            else:
+                screenPos = self._convertMousePosToScreenPos(mouseEvent.localPos().x(), mouseEvent.localPos().y())
+                selectedNode = self._getModelNodeAtScreenPos(screenPos)
+                newSelectedNodes = [ selectedNode ] if selectedNode is not None else None
+
+            self.selectedModelNodesChanged.emit(self._currentModel, newSelectedNodes)
+            self.update()
+
 
     def eventFilter(self, watched, event):
         if event.type() == QEvent.ShortcutOverride:
@@ -793,9 +895,9 @@ class ModelerViewport(QOpenGLWidget):
         else:
             currentModelIndex = -1
         if currentModelIndex >= 0 and currentModelIndex < len(self._models.models):
-            self.selectedModelNodeChanged.emit(self._models.models[currentModelIndex], None)
+            self.selectedModelNodesChanged.emit(self._models.models[currentModelIndex], None)
         else:
-            self.selectedModelNodeChanged.emit(None, None)
+            self.selectedModelNodesChanged.emit(None, None)
 
         ct = list(map(float, xMod.attrib['CameraTransform'].split(',')))
         self._cameraTransform = cgmath.Mat44(ct[0],ct[1],ct[2],ct[3],ct[4],ct[5],ct[6],ct[7],ct[8],ct[9],ct[10],ct[11],ct[12],ct[13],ct[14],ct[15])

@@ -213,6 +213,10 @@ class VectorBase(object):
     def length(self):
         return math.sqrt(self.dot(self))
 
+    @property
+    def lengthSq(self):
+        return self.dot(self)
+
     def __neg__(self):
         return self.__class__(_dllHandle.Vector_Neg(self._ptr))
 
