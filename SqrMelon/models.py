@@ -328,12 +328,20 @@ class Model(object):
         bounds.add(bounds.max + boundsIncrease * 0.5)
         boundsRange = bounds.max - bounds.min
 
-        str = "uniform float uSlice;\n"+\
-        "\n"+\
-        "void main()\n"+\
+        # str = "uniform float uSlice;\n"+\
+        # "\n"+\
+        # "void main()\n"+\
+        # "{\n"+\
+        # "\tvec3 p = vec3(gl_FragCoord.x,gl_FragCoord.y,uSlice)/uResolution.x;\n"+\
+        # ("\tp = p * vec3(%f,%f,%f) + vec3(%f,%f,%f);\n" % (boundsRange[0],boundsRange[1],boundsRange[2],bounds.min[0],bounds.min[1],bounds.min[2])) +\
+        # "\tvec4 p4 = vec4(p, 1.0);\n"+\
+        # "\n"+\
+        # "\tfloat d = 99999.0;\n"
+
+        funcName = self.name.replace(' ', '')
+
+        str = ("float f%s(vec3 p)\n" % funcName)+\
         "{\n"+\
-        "\tvec3 p = vec3(gl_FragCoord.x,gl_FragCoord.y,uSlice)/uResolution.x;\n"+\
-        ("\tp = p * vec3(%f,%f,%f) + vec3(%f,%f,%f);\n" % (boundsRange[0],boundsRange[1],boundsRange[2],bounds.min[0],bounds.min[1],bounds.min[2])) +\
         "\tvec4 p4 = vec4(p, 1.0);\n"+\
         "\n"+\
         "\tfloat d = 99999.0;\n"
@@ -341,7 +349,7 @@ class Model(object):
         for node in self.nodes:
             str += node.getFieldFragmentShaderText()
 
-        str += "\toutColor0=vec4(d);\n"+\
+        str += "\treturn d;\n"+\
         "}\n"
         return str
 

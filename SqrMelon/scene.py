@@ -105,22 +105,22 @@ def _deserializePasses(sceneFile, models):
     passes = []
     frameBufferMap = {}
 
-    # Start with adding the models here as passes. Stored by their model name
-    for model in models.models:
-        inputs = []
-        if model.name not in frameBufferMap:
-            frameBufferMap[model.name] = len(frameBufferMap)
-        size = 256,256
-        fragStitches = []
-        fragStitches.append(templateDir.join("header.glsl"))
-        fragStitches.append(templateDir.join("noiselib.glsl"))
-        fragStitches.append(templateDir.join("sdf.glsl"))
-        #fragStitches.append(templateDir.join("test3d.glsl"))
-        fragStitches.append(modelsDir.join("%s.glsl" % model.name))
-
-        # Add a pass for rendering a 3D texture
-        passes.append(
-            PassData([], fragStitches, {}, inputs, frameBufferMap.get(model.name, -1), False, size, False, False, 1, None, True, None))
+    # # Start with adding the models here as passes. Stored by their model name
+    # for model in models.models:
+    #     inputs = []
+    #     if model.name not in frameBufferMap:
+    #         frameBufferMap[model.name] = len(frameBufferMap)
+    #     size = 256,256
+    #     fragStitches = []
+    #     fragStitches.append(templateDir.join("header.glsl"))
+    #     fragStitches.append(templateDir.join("noiselib.glsl"))
+    #     fragStitches.append(templateDir.join("sdf.glsl"))
+    #     #fragStitches.append(templateDir.join("test3d.glsl"))
+    #     fragStitches.append(modelsDir.join("%s.glsl" % model.name))
+    #
+    #     # Add a pass for rendering a 3D texture
+    #     passes.append(
+    #         PassData([], fragStitches, {}, inputs, frameBufferMap.get(model.name, -1), False, size, False, False, 1, None, True, None))
 
 
     for xPass in xTemplate:
@@ -193,12 +193,17 @@ def _deserializePasses(sceneFile, models):
         fragStitches = []
         uniforms = {}
         for xElement in xPass:
-            path = FilePath(xElement.attrib['path'])
-            stitches = vertStitches if path.hasExt('vert') else fragStitches
             if xElement.tag.lower() == 'section':
+                path = FilePath(xElement.attrib['path'])
+                stitches = vertStitches if path.hasExt('vert') else fragStitches
                 stitches.append(sceneDir.join(path))
             elif xElement.tag.lower() in ('shared', 'global'):
+                path = FilePath(xElement.attrib['path'])
+                stitches = vertStitches if path.hasExt('vert') else fragStitches
                 stitches.append(templateDir.join(path))
+            elif xElement.tag.lower() == 'models':
+                for model in models.models:
+                    fragStitches.append(modelsDir.join("%s.glsl" % model.name))
             else:
                 raise ValueError('Unknown XML tag in pass: "%s"' % xElement.tag)
             for xUniform in xElement:
@@ -490,7 +495,7 @@ class Scene(object):
                     code = e.args[1][0].decode('ascii').split('\n')
                 except IndexError:
                     print(e.args)
-                    print('pass: ' + passData.name)
+                    print('pass: ' + (passData.name or ''))
                     print('fragCode:')
                     print(fragCode)
                     return

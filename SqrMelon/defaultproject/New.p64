@@ -1,12 +1,12 @@
 <?xml version="1.0" ?>
-<Project TimerBPS="3.33333333333" TimerMaxTime="8.0" TimerMinTime="0.0">
+<Project TimerMinTime="0.0" TimerMaxTime="8.0" TimerBPS="3.33333333333">
 	<Models>
-		<Model name="Model">
-			<ModelNodeBox name="Box" rotation="0.000000,0.383784,0.000000" scale="1.0" size="0.250000,0.250000,1.186102" translation="-0.612035,0.576841,0.000000"/>
-			<ModelNodeBox name="Box" rotation="0.000000,0.000000,0.000000" scale="1.0" size="1.503746,0.250000,0.313079" translation="-0.040184,-0.037929,-0.027177"/>
-			<ModelNodeBox name="Box" rotation="0.000000,0.000000,0.000000" scale="1.0" size="1.503746,0.250000,0.313079" translation="-0.040184,-0.547557,-0.027177"/>
-			<ModelNodeBox name="Box" rotation="0.000000,-0.513514,0.000000" scale="1.0" size="0.250000,0.250000,0.500000" translation="0.635786,0.580195,0.000000"/>
-			<ModelNodeBox name="Box" rotation="0.000000,0.000000,0.000000" scale="1.0" size="2.000000,2.000000,0.100000" translation="0.000000,0.000000,0.000000"/>
+		<Model name="Test Model">
+			<ModelNodeBox name="A" translation="0.127378,1.510248,-0.065345" rotation="1.168342,-0.407373,-0.808083" scale="1.0" size="0.250000,0.666401,0.282009"/>
+			<ModelNodeBox name="B" translation="-0.681461,0.656358,0.000000" rotation="-1.685125,0.393764,1.775638" scale="1.0" size="2.000000,2.000000,0.100000"/>
+			<ModelNodeBox name="C" translation="-0.755754,-0.547557,-0.027177" rotation="0.000000,0.000000,0.000000" scale="1.0" size="1.503746,0.250000,0.313079"/>
+			<ModelNodeBox name="D" translation="-0.138829,0.980452,0.000000" rotation="-1.688323,0.490562,0.377604" scale="1.0" size="0.250000,0.250000,1.186102"/>
+			<ModelNodeBox name="E" translation="-0.871564,-0.037929,-0.027177" rotation="0.000000,0.000000,0.000000" scale="1.0" size="1.503746,0.250000,0.313079"/>
 		</Model>
 	</Models>
 </Project>
