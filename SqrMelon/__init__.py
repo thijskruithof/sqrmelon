@@ -130,6 +130,7 @@ class App(QMainWindowState):
         self.__models.modelChanged.connect(self.__modeler.viewport.onModelChanged)
         self.__models.modelChanged.connect(self._scheduleModelExport)
         self.__modeler.viewport.selectedModelNodesChanged.connect(self.__modelsOutliner.selectModelNodes)
+        self.__modeler.viewport.cameraChanged.connect(cameraView.setModelerCameraTransform)
 
         self.timeSlider = TimeSlider(self._timer, self.__shotsManager)
         self.__shotsManager.shotChanged.connect(self.timeSlider.repaint)
@@ -180,7 +181,7 @@ class App(QMainWindowState):
         camToggle = QAction('&Toggle camera control', self)
         camToggle.setShortcut(QKeySequence(Qt.Key_T))
         camToggle.setShortcutContext(Qt.ApplicationShortcut)
-        camToggle.triggered.connect(cameraView.toggle)
+        camToggle.triggered.connect(cameraView.toggleBetweenFreeAndAnimation)
 
         camCopAnim = QAction('Snap came&ra to animation', self)
         camCopAnim.setShortcut(QKeySequence(Qt.Key_R))

@@ -1,11 +1,17 @@
 from math import degrees, radians
 import functools
 import time
+
+import cgmath
 import icons
 from qtutil import *
 from mathutil import addVec3, multVec3, rotateVec3
 from scene import CameraTransform
 
+class CameraControlMode:
+    FREE = 0
+    ANIMATION = 1
+    MODELER = 2
 
 class Camera(QWidget):
     """
@@ -36,13 +42,29 @@ class Camera(QWidget):
         super(Camera, self).__init__()
         self.setLayout(hlayout())
 
-        self.__enabled = QPushButton('')
-        self.__enabled.clicked.connect(self.toggle)
-        self.__enabled.setFlat(True)
-        self.layout().addWidget(self.__enabled)
-        self.__cameraControlActive = True  # the toggle call will make this the opposite
-        self.toggle()
-        self.__enabled.setIconSize(QSize(24, 24))
+        self._freeCameraControlButton = QPushButton(icons.get('icons8-video-camera-50'), '')
+        self._freeCameraControlButton.clicked.connect(self._setFreeCameraControl)
+        self._freeCameraControlButton.setCheckable(True)
+        self._freeCameraControlButton.setIconSize(QSize(24, 24))
+        self._freeCameraControlButton.setToolTip("Free")
+        self._animationCameraControlButton = QPushButton(icons.get('icons8-line-chart-50'), '')
+        self._animationCameraControlButton.clicked.connect(self._setAnimationCameraControl)
+        self._animationCameraControlButton.setCheckable(True)
+        self._animationCameraControlButton.setIconSize(QSize(24, 24))
+        self._animationCameraControlButton.setToolTip("Animation curves")
+        self._modelerCameraControlButton = QPushButton(icons.get('icons8-grid-50'), '')
+        self._modelerCameraControlButton.clicked.connect(self._setModelerCameraControl)
+        self._modelerCameraControlButton.setCheckable(True)
+        self._modelerCameraControlButton.setIconSize(QSize(24, 24))
+        self._modelerCameraControlButton.setToolTip("Modeler viewport")
+
+        self.layout().addWidget(self._freeCameraControlButton)
+        self.layout().addWidget(self._animationCameraControlButton)
+        self.layout().addWidget(self._modelerCameraControlButton)
+        self.layout().addSpacing(24)
+
+        self._cameraControlMode = CameraControlMode.FREE
+        self.toggleBetweenFreeAndAnimation()
 
         timer.timeChanged.connect(self.__copyAnim)
         copyAnim = QPushButton(QIcon(icons.get('Film-Refresh-48')), '')
@@ -61,6 +83,7 @@ class Camera(QWidget):
         for key in Camera.TURN_LUT:
             self.__keyStates[key] = False
         self.__data = CameraTransform()
+        self.__modelerCameraTransform = cgmath.Mat44()
         self.__inputs = []
         for i, value in enumerate(self.__data):
             s = DoubleSpinBox(value)
@@ -88,7 +111,7 @@ class Camera(QWidget):
         self.__animationEditor.setTransformKey(tuple(self.__data.rotate))
 
     def __copyAnim(self, *args):
-        if not self.__cameraControlActive:
+        if self._cameraControlMode == CameraControlMode.ANIMATION:
             self.copyAnim()
 
     def copyAnim(self):
@@ -98,16 +121,40 @@ class Camera(QWidget):
         self.__data = CameraTransform(*(data['uOrigin'] + data['uAngles']))
         self.cameraChanged.emit()
 
-    def toggle(self, *args):
-        self.__cameraControlActive = not self.__cameraControlActive
-        if self.__cameraControlActive:
-            self.__enabled.setIcon(icons.get('Toggle Off-48'))
-            self.__enabled.setToolTip('Enable camera animation')
-            self.__enabled.setStatusTip('Enable camera animation')
+    def setModelerCameraTransform(self, cameraTransform):
+        self.__modelerCameraTransform = cameraTransform
+        if self._cameraControlMode == CameraControlMode.MODELER:
+            cameraTransformInv = cgmath.Mat44(cameraTransform)
+            cameraTransformInv.inverse()
+            angles = cameraTransformInv.eulerXYZ()
+            self.__data = CameraTransform(cameraTransform[12], cameraTransform[13], cameraTransform[14], -angles[0], angles[1], -angles[2])
+            self.cameraChanged.emit()
+
+    def toggleBetweenFreeAndAnimation(self, *args):
+        if self._cameraControlMode == CameraControlMode.ANIMATION:
+            self._cameraControlMode = CameraControlMode.FREE
         else:
-            self.__enabled.setIcon(icons.get('Toggle On-48'))
-            self.__enabled.setToolTip('Disable camera animation')
-            self.__enabled.setStatusTip('Disable camera animation')
+            self._cameraControlMode = CameraControlMode.ANIMATION
+
+        self._refreshCameraControlButton()
+
+    def _refreshCameraControlButton(self):
+        self._freeCameraControlButton.setChecked(self._cameraControlMode == CameraControlMode.FREE)
+        self._animationCameraControlButton.setChecked(self._cameraControlMode == CameraControlMode.ANIMATION)
+        self._modelerCameraControlButton.setChecked(self._cameraControlMode == CameraControlMode.MODELER)
+
+    def _setFreeCameraControl(self):
+        self._cameraControlMode = CameraControlMode.FREE
+        self._refreshCameraControlButton()
+
+    def _setAnimationCameraControl(self):
+        self._cameraControlMode = CameraControlMode.ANIMATION
+        self._refreshCameraControlButton()
+
+    def _setModelerCameraControl(self):
+        self._cameraControlMode = CameraControlMode.MODELER
+        self._refreshCameraControlButton()
+        self.setModelerCameraTransform(self.__modelerCameraTransform)
 
     def __setData(self, index, value):
         """ Called from the UI, performing unit conversion on angles """

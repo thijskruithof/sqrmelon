@@ -205,6 +205,7 @@ class ModifierMode:
 class ModelerViewport(QOpenGLWidget):
     selectedModelNodesChanged = pyqtSignal(object, object)
     modifierModeChanged = pyqtSignal(object)
+    cameraChanged = pyqtSignal(object)
 
     """
     Modeler window/viewport
@@ -542,6 +543,7 @@ class ModelerViewport(QOpenGLWidget):
         desiredDist = 2.0*max(radius/math.tan(fovH), radius/math.tan(fovW))
 
         self._cameraTransform = cgmath.Mat44.translate(0.0, 0.0, currentDist-desiredDist) * self._cameraTransform
+        self.cameraChanged.emit(self._cameraTransform)
         self.update()
 
     def __onResize(self):
@@ -684,6 +686,8 @@ class ModelerViewport(QOpenGLWidget):
                 zoomSpeed = 0.025
                 deltaMouse = mathutil.Vec2(mouseEvent.localPos().x(), mouseEvent.localPos().y()) - self._adjustCameraStartMousePos
                 self._cameraTransform = cgmath.Mat44.translate(0.0, 0.0, deltaMouse[1] * zoomSpeed) * self._adjustCameraStartCamera
+
+            self.cameraChanged.emit(self._cameraTransform)
 
         # Dragging a translation modifier axis?
         elif self._modifierMode == ModifierMode.TRANSLATE and self._modifierAxis != ModifierAxis.NONE:
