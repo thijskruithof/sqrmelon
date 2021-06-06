@@ -58,16 +58,21 @@ float fField(vec3 point, out vec4 materialId)
     // Restore the point in case it was modified for the previous shape
     point = originalPoint;
 
-    // Create a torus
+    // Create a test model    
     point -= vec3(4.0, 1.0, 0.0);
-    // This trick flips the up axis so that the torus is flat.
-    point = point.xzy;
-    // pR rotates a shape around an axis, using X axis here
-    pR(point.yz, 0.5);
-    tempResult = fTorus(point, 0.2, 1.0);
-    tempMaterialId = vec4(point, 3); // Again another material Id
-    // Merge the floor with the rest of the scene
+
+    tempResult = fTestModel(point);
+    tempMaterialId = vec4(point, 4);
     fOpUnion(result, tempResult, materialId, tempMaterialId);
+
+    // // This trick flips the up axis so that the torus is flat.
+    // point = point.xzy;
+    // // pR rotates a shape around an axis, using X axis here
+    // pR(point.yz, 0.5);
+    // tempResult = fTorus(point, 0.2, 1.0);
+    // tempMaterialId = vec4(point, 3); // Again another material Id
+    // // Merge the floor with the rest of the scene
+    // fOpUnion(result, tempResult, materialId, tempMaterialId);
 
     // Restore the point in case it was modified for the previous shape
     point = originalPoint;
@@ -181,6 +186,11 @@ Material GetMaterial(Hit hit, Ray ray)
         // Note that that is only the case because we manually did in fField
         float fade = smoothstep(-0.2, 0.2, hit.materialId.x);
         result = MixMaterial(green, red, fade);
+    }
+
+    if (objectId == 4)
+    {
+    	result.albedo = vec3(1.0, 0.0, 0.0);
     }
 
     return result;

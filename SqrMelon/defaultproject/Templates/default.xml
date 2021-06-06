@@ -31,7 +31,7 @@
         <global path="header.glsl"/>
         <global path="noiselib.glsl"/>
         <global path="noise.glsl"/>
-	</pass>
+	</pass>    
 	
 	<!-- output 0: shaded pixel, distance in alpha, 1: world point, packed normal in alpha, 2: specular color, roughness in alpha -->
     <pass buffer="2" outputs="3" input0="16" input1="16" input2="16" input3="16" name="Trace and shade main">
@@ -41,6 +41,7 @@
         <global path="sdf.glsl"/>
         <global path="lighting.glsl"/>
         <shared path="public.glsl"/>
+        <models/>
         <section path="content.glsl"/>
         <section path="fogremap.glsl"/>
         <global path="tracer.glsl"/>
@@ -53,6 +54,7 @@
         <global path="sdf.glsl"/>
         <global path="lighting.glsl"/>
         <shared path="public.glsl"/>
+        <models/>
         <section path="content.glsl"/>
         <section path="fogremap.glsl"/>
         <global path="tracer.glsl"/>
